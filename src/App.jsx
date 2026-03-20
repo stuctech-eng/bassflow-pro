@@ -9,6 +9,7 @@ const PINK = "#FF2D7A";
 const PINK_LIGHT = "#FFE0EE";
 const BG = "#F5F4F0";
 const DARK = "#1A1A1A";
+const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
 
 const MODULES_DEFAULT = [
   { id: "mod1", name: "Fundamenten", level: "Beginner", color: PINK },
@@ -51,6 +52,29 @@ function UploadProgress({ progress }) {
       </div>
     </div>
   );
+}
+
+async function analyzeTab(imageData, mediaType) {
+  const base64 = imageData.split(",")[1];
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514", max_tokens: 1000,
+      messages: [{ role: "user", content: [
+        { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: base64 } },
+        { type: "text", text: `Analyseer deze basgitaar bladmuziek/tabulatuur. Geef ALLEEN JSON terug:\n{"title":"titel","tabText":"ASCII tabulatuur G|\\nD|\\nA|\\nE|","bpm":120,"notes":"korte analyse NL"}` }
+      ]}]
+    })
+  });
+  const data = await res.json();
+  const text = data.content?.find(b => b.type === "text")?.text || "{}";
+  return JSON.parse(text.replace(/```json|```/g, "").trim());
 }
 
 function TabView({ ex, onClose, onAddMp3, onAddTab }) {
@@ -172,21 +196,7 @@ function EditModal({ exercise, modules, onSave, onClose }) {
     if (!imagePreview) return;
     setStep("analyzing");
     try {
-      const base64 = imagePreview.split(",")[1];
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 1000,
-          messages: [{ role: "user", content: [
-            { type: "image", source: { type: "base64", media_type: imageFile?.type || "image/jpeg", data: base64 } },
-            { type: "text", text: `Analyseer deze basgitaar bladmuziek/tabulatuur. Geef ALLEEN JSON terug:\n{"title":"titel","tabText":"ASCII tabulatuur G|\\nD|\\nA|\\nE|","bpm":120,"notes":"korte analyse NL"}` }
-          ]}]
-        })
-      });
-      const data = await res.json();
-      const text = data.content?.find(b => b.type === "text")?.text || "{}";
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+      const parsed = await analyzeTab(imagePreview, imageFile?.type);
       setAiResult(parsed);
       if (parsed.title && !title) setTitle(parsed.title);
       if (parsed.bpm) setBpm(parsed.bpm);
@@ -476,23 +486,20 @@ export default function App() {
 
   const handleAddTab = async (exId, url, file) => {
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 1000,
-          messages: [{ role: "user", content: [
-            { type: "image", source: { type: "url", url } },
-            { type: "text", text: `Analyseer deze basgitaar tabulatuur. ALLEEN JSON:\n{"tabText":"ASCII tab","bpm":120,"notes":"analyse NL"}` }
-          ]}]
-        })
-      });
-      const data = await res.json();
-      const parsed = JSON.parse(data.content?.find(b => b.type === "text")?.text?.replace(/```json|```/g,"").trim() || "{}");
-      await updateDoc(doc(db, "exercises", exId), { imageUrl: url, tabText: parsed.tabText || "", aiNotes: parsed.notes || "", ...(parsed.bpm ? { bpm: parsed.bpm } : {}) });
+      const r = new FileReader();
+      r.readAsDataURL(file);
+      r.onload = async (ev) => {
+        try {
+          const parsed = await analyzeTab(ev.target.result, file.type);
+          await updateDoc(doc(db, "exercises", exId), { imageUrl: url, tabText: parsed.tabText || "", aiNotes: parsed.notes || "", ...(parsed.bpm ? { bpm: parsed.bpm } : {}) });
+        } catch {
+          await updateDoc(doc(db, "exercises", exId), { imageUrl: url });
+        }
+        if (viewEx?.id === exId) setViewEx(v => ({ ...v, imageUrl: url }));
+      };
     } catch {
       await updateDoc(doc(db, "exercises", exId), { imageUrl: url });
     }
-    if (viewEx?.id === exId) setViewEx(v => ({ ...v, imageUrl: url }));
   };
 
   const totalSessions = exercises.reduce((a, e) => a + (e.sessions?.length || 0), 0);
@@ -502,7 +509,6 @@ export default function App() {
   return (
     <div style={{ maxWidth: 390, margin: "0 auto", minHeight: "100vh", background: BG, fontFamily: "'Syne', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}input,select,textarea,button{font-family:'Syne',sans-serif}::-webkit-scrollbar{width:0}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}`}</style>
-
       <div style={{ background: "#fff", padding: "13px 16px 10px", borderBottom: "1px solid #f0f0f0", position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
@@ -516,7 +522,6 @@ export default function App() {
           </div>
         </div>
       </div>
-
       <div style={{ paddingBottom: 70, overflowY: "auto", height: "calc(100vh - 105px)" }}>
         {tab === "home" && (
           <div style={{ padding: 14 }}>
@@ -579,7 +584,6 @@ export default function App() {
             </div>
           </div>
         )}
-
         {tab === "exercises" && (
           <div style={{ padding: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -607,7 +611,6 @@ export default function App() {
             )}
           </div>
         )}
-
         {tab === "modules" && (
           <div style={{ padding: 14 }}>
             <div style={{ fontWeight: 800, fontSize: 17, color: DARK, marginBottom: 12 }}>Modules</div>
@@ -634,7 +637,6 @@ export default function App() {
             </div>
           </div>
         )}
-
         {tab === "progress" && (
           <div style={{ padding: 14 }}>
             <div style={{ fontWeight: 800, fontSize: 17, color: DARK, marginBottom: 14 }}>Voortgang</div>
@@ -671,7 +673,6 @@ export default function App() {
           </div>
         )}
       </div>
-
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 390, background: "#fff", borderTop: "1px solid #f0f0f0", display: "flex", padding: "6px 0 12px", zIndex: 20 }}>
         {[
           { id: "home", icon: "🏠", label: "Home" },
@@ -689,7 +690,6 @@ export default function App() {
           </button>
         ))}
       </div>
-
       {showImport && <EditModal modules={modules} onSave={() => {}} onClose={() => setShowImport(false)} />}
       {editExercise && <EditModal exercise={editExercise} modules={modules} onSave={() => {}} onClose={() => setEditExercise(null)} />}
       {sessionEx && <SessionModal exercise={sessionEx} onSave={() => {}} onClose={() => setSessionEx(null)} />}
