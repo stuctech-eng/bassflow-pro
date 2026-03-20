@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_ANTHROPIC_API_KEY': JSON.stringify(process.env.ANTHROPIC_API_KEY)
+  },
   plugins: [
     react(),
     VitePWA({
