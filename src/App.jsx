@@ -1,33 +1,33 @@
-import { useState, useRef, useEffect } from “react”;
+import { useState, useRef, useEffect } from "react";
 import {
 collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy
-} from “firebase/firestore”;
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from “firebase/storage”;
-import { db, storage } from “./firebase.js”;
+} from "firebase/firestore";
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { db, storage } from "./firebase.js";
 
-const PINK = “#FF2D7A”;
-const PINK_LIGHT = “#FFE0EE”;
-const BG = “#F5F4F0”;
-const DARK = “#1A1A1A”;
+const PINK = "#FF2D7A";
+const PINK_LIGHT = "#FFE0EE";
+const BG = "#F5F4F0";
+const DARK = "#1A1A1A";
 const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
 
 const MODULES_DEFAULT = [
-{ id: “mod1”, name: “Fundamenten”, level: “Beginner”, color: PINK },
-{ id: “mod2”, name: “Groove & Ritme”, level: “Beginner”, color: PINK },
-{ id: “mod3”, name: “Muting & Articulatie”, level: “Intermediate”, color: “#FF8C00” },
-{ id: “mod4”, name: “Slap Bass”, level: “Advanced”, color: “#8B2FC9” },
+{ id: "mod1", name: "Fundamenten", level: "Beginner", color: PINK },
+{ id: "mod2", name: "Groove & Ritme", level: "Beginner", color: PINK },
+{ id: "mod3", name: "Muting & Articulatie", level: "Intermediate", color: "#FF8C00" },
+{ id: "mod4", name: "Slap Bass", level: "Advanced", color: "#8B2FC9" },
 ];
 
 function StarRating({ value, onChange, size = 16 }) {
 const [hover, setHover] = useState(0);
 return (
-<div style={{ display: “flex”, gap: 1 }}>
+<div style={{ display: "flex", gap: 1 }}>
 {[1,2,3,4,5].map(s => (
 <span key={s}
 onMouseEnter={() => onChange && setHover(s)}
 onMouseLeave={() => onChange && setHover(0)}
 onClick={() => onChange?.(s)}
-style={{ cursor: onChange ? “pointer” : “default”, fontSize: size, color: s <= (hover || value) ? “#FFB800” : “#DDD”, transition: “color .12s” }}
+style={{ cursor: onChange ? "pointer" : "default", fontSize: size, color: s <= (hover || value) ? "#FFB800" : "#DDD", transition: "color .12s" }}
 >★</span>
 ))}
 </div>
@@ -35,42 +35,42 @@ style={{ cursor: onChange ? “pointer” : “default”, fontSize: size, color
 }
 
 function Badge({ level }) {
-const c = { Beginner: [PINK_LIGHT, PINK], Intermediate: [”#FFF0E0”,”#FF8C00”], Advanced: [”#F0E8FF”,”#8B2FC9”] }[level] || [PINK_LIGHT, PINK];
-return <span style={{ background: c[0], color: c[1], fontSize: 9, fontWeight: 700, padding: “2px 7px”, borderRadius: 20, letterSpacing: “.05em”, textTransform: “uppercase” }}>{level}</span>;
+const c = { Beginner: [PINK_LIGHT, PINK], Intermediate: ["#FFF0E0","#FF8C00"], Advanced: ["#F0E8FF","#8B2FC9"] }[level] || [PINK_LIGHT, PINK];
+return <span style={{ background: c[0], color: c[1], fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 20, letterSpacing: ".05em", textTransform: "uppercase" }}>{level}</span>;
 }
 
 function UploadProgress({ progress, label }) {
 return (
 <div style={{ marginTop: 8 }}>
-<div style={{ fontSize: 10, color: “#999”, marginBottom: 3 }}>{label || “Uploaden…”} {Math.round(progress)}%</div>
-<div style={{ height: 4, background: “#eee”, borderRadius: 4 }}>
-<div style={{ width: `${progress}%`, height: “100%”, background: PINK, borderRadius: 4, transition: “width .2s” }} />
+<div style={{ fontSize: 10, color: "#999", marginBottom: 3 }}>{label || "Uploaden…"} {Math.round(progress)}%</div>
+<div style={{ height: 4, background: "#eee", borderRadius: 4 }}>
+<div style={{ width: `${progress}%`, height: "100%", background: PINK, borderRadius: 4, transition: "width .2s" }} />
 </div>
 </div>
 );
 }
 
 async function analyzeTab(imageData, mediaType) {
-const base64 = imageData.split(”,”)[1];
-const res = await fetch(“https://api.anthropic.com/v1/messages”, {
-method: “POST”,
+const base64 = imageData.split(",")[1];
+const res = await fetch("https://api.anthropic.com/v1/messages", {
+method: "POST",
 headers: {
-“Content-Type”: “application/json”,
-“x-api-key”: API_KEY,
-“anthropic-version”: “2023-06-01”,
-“anthropic-dangerous-direct-browser-access”: “true”
+"Content-Type": "application/json",
+"x-api-key": API_KEY,
+"anthropic-version": "2023-06-01",
+"anthropic-dangerous-direct-browser-access": "true"
 },
 body: JSON.stringify({
-model: “claude-sonnet-4-20250514”, max_tokens: 1000,
-messages: [{ role: “user”, content: [
-{ type: “image”, source: { type: “base64”, media_type: mediaType || “image/jpeg”, data: base64 } },
-{ type: “text”, text: `Analyseer deze basgitaar bladmuziek/tabulatuur. Geef ALLEEN JSON terug:\n{"title":"titel","tabText":"ASCII tabulatuur G|\\nD|\\nA|\\nE|","bpm":120,"notes":"korte analyse NL"}` }
+model: "claude-sonnet-4-20250514", max_tokens: 1000,
+messages: [{ role: "user", content: [
+{ type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: base64 } },
+{ type: "text", text: `Analyseer deze basgitaar bladmuziek/tabulatuur. Geef ALLEEN JSON terug:\n{"title":"titel","tabText":"ASCII tabulatuur G|\\nD|\\nA|\\nE|","bpm":120,"notes":"korte analyse NL"}` }
 ]}]
 })
 });
 const data = await res.json();
-const text = data.content?.find(b => b.type === “text”)?.text || “{}”;
-return JSON.parse(text.replace(/`json|`/g, “”).trim());
+const text = data.content?.find(b => b.type === "text")?.text || "{}";
+return JSON.parse(text.replace(/`json|`/g, "").trim());
 }
 
 function TabView({ ex, onClose, onAddMp3, onAddPages }) {
@@ -79,7 +79,7 @@ const imgRef = useRef();
 const [page, setPage] = useState(0);
 const [playing, setPlaying] = useState(false);
 const [uploadProgress, setUploadProgress] = useState(null);
-const [uploadLabel, setUploadLabel] = useState(””);
+const [uploadLabel, setUploadLabel] = useState("");
 const audioRef = useRef();
 const touchStartX = useRef(null);
 const pages = ex.pages || (ex.imageUrl ? [{ imageUrl: ex.imageUrl, tabText: ex.tabText, aiNotes: ex.aiNotes }] : []);
@@ -93,10 +93,10 @@ else { audioRef.current.play(); setPlaying(true); }
 
 const handleMp3 = async (file) => {
 if (!file) return;
-setUploadLabel(“MP3 uploaden…”); setUploadProgress(0);
+setUploadLabel("MP3 uploaden…"); setUploadProgress(0);
 const storageRef = ref(storage, `mp3/${ex.id}/${file.name}`);
 const task = uploadBytesResumable(storageRef, file);
-task.on(“state_changed”,
+task.on("state_changed",
 snap => setUploadProgress((snap.bytesTransferred / snap.totalBytes) * 100),
 err => { console.error(err); setUploadProgress(null); },
 async () => { const url = await getDownloadURL(task.snapshot.ref); onAddMp3(url); setUploadProgress(null); }
@@ -112,16 +112,16 @@ setUploadLabel(`Foto ${i+1}/${files.length} uploaden...`); setUploadProgress(0);
 const storageRef = ref(storage, `tabs/${ex.id}/${Date.now()}_${file.name}`);
 const task = uploadBytesResumable(storageRef, file);
 const url = await new Promise((resolve, reject) => {
-task.on(“state_changed”, snap => setUploadProgress((snap.bytesTransferred / snap.totalBytes) * 80), reject,
+task.on("state_changed", snap => setUploadProgress((snap.bytesTransferred / snap.totalBytes) * 80), reject,
 async () => resolve(await getDownloadURL(task.snapshot.ref)));
 });
 setUploadLabel(`Foto ${i+1}/${files.length} analyseren...`); setUploadProgress(80);
-let tabText = “”, aiNotes = “”;
+let tabText = "", aiNotes = "";
 try {
 const r = new FileReader();
 const dataUrl = await new Promise(res => { r.onload = e => res(e.target.result); r.readAsDataURL(file); });
 const parsed = await analyzeTab(dataUrl, file.type);
-tabText = parsed.tabText || “”; aiNotes = parsed.notes || “”;
+tabText = parsed.tabText || ""; aiNotes = parsed.notes || "";
 } catch {}
 newPages.push({ imageUrl: url, tabText, aiNotes });
 }
@@ -145,11 +145,11 @@ touchStartX.current = null;
 const currentPage = pages[page];
 
 return (
-<div style={{ position: “fixed”, inset: 0, background: “#fff”, zIndex: 200, display: “flex”, flexDirection: “column”, fontFamily: “‘Syne’, sans-serif” }}>
-<div style={{ display: “flex”, alignItems: “center”, padding: “10px 14px”, borderBottom: “1px solid #eee”, gap: 10 }}>
-<button onClick={onClose} style={{ background: “#f0f0f0”, border: “none”, borderRadius: “50%”, width: 32, height: 32, cursor: “pointer”, fontSize: 13 }}>✕</button>
-<div style={{ flex: 1, fontWeight: 800, fontSize: 14, color: DARK, overflow: “hidden”, textOverflow: “ellipsis”, whiteSpace: “nowrap” }}>{ex.title}</div>
-{pages.length > 0 && <div style={{ background: PINK_LIGHT, color: PINK, padding: “2px 10px”, borderRadius: 20, fontSize: 11, fontWeight: 700 }}>{page + 1}/{pages.length}</div>}
+<div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "‘Syne’, sans-serif" }}>
+<div style={{ display: "flex", alignItems: "center", padding: "10px 14px", borderBottom: "1px solid #eee", gap: 10 }}>
+<button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 13 }}>✕</button>
+<div style={{ flex: 1, fontWeight: 800, fontSize: 14, color: DARK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ex.title}</div>
+{pages.length > 0 && <div style={{ background: PINK_LIGHT, color: PINK, padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>{page + 1}/{pages.length}</div>}
 </div>
 
 ```
@@ -204,7 +204,7 @@ return (
     }}>{ex.mp3Url ? (playing ? "⏸" : "▶") : "🎵"}</button>
     <input ref={mp3Ref} type="file" accept="audio/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if (f) handleMp3(f); }} />
     <div style={{ flex: 1 }}>
-      <div style={{ fontSize: 10, color: "#999" }}>{ex.mp3Url ? "MP3 gekoppeld ✓" : "Geen MP3 — tik ▶"}</div>
+      <div style={{ fontSize: 10, color: "#999" }}>{ex.mp3Url ? "MP3 gekoppeld ✓" : "Geen MP3 -- tik ▶"}</div>
       <div style={{ fontWeight: 800, color: PINK, fontSize: 15 }}>{ex.bpm} BPM</div>
     </div>
     <button onClick={() => imgRef.current.click()} style={{ background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 8, padding: "7px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>+ Foto</button>
@@ -217,15 +217,15 @@ return (
 
 function EditModal({ exercise, modules, onClose }) {
 const isNew = !exercise;
-const [step, setStep] = useState(“form”);
+const [step, setStep] = useState("form");
 const [imageFiles, setImageFiles] = useState([]);
 const [imagePreviews, setImagePreviews] = useState([]);
 const [mp3File, setMp3File] = useState(null);
-const [title, setTitle] = useState(exercise?.title || “”);
-const [moduleId, setModuleId] = useState(exercise?.moduleId || modules[0]?.id || “mod1”);
+const [title, setTitle] = useState(exercise?.title || "");
+const [moduleId, setModuleId] = useState(exercise?.moduleId || modules[0]?.id || "mod1");
 const [bpm, setBpm] = useState(exercise?.bpm || 100);
 const [uploadProgress, setUploadProgress] = useState(0);
-const [uploadLabel, setUploadLabel] = useState(””);
+const [uploadLabel, setUploadLabel] = useState("");
 const fileRef = useRef();
 const mp3Ref = useRef();
 
@@ -246,7 +246,7 @@ r.readAsDataURL(f);
 };
 
 const handleSave = async () => {
-setStep(“uploading”);
+setStep("uploading");
 let pages = exercise?.pages || [];
 let mp3Url = exercise?.mp3Url || null;
 let detectedBpm = bpm;
@@ -301,16 +301,16 @@ onClose();
 
 };
 
-const inp = { width: “100%”, padding: “10px 12px”, borderRadius: 10, border: “1.5px solid #eee”, fontSize: 13, outline: “none”, fontFamily: “‘Syne’, sans-serif”, boxSizing: “border-box” };
-const btn = { width: “100%”, background: PINK, color: “#fff”, border: “none”, borderRadius: 12, padding: “13px”, fontSize: 14, fontWeight: 800, cursor: “pointer”, fontFamily: “‘Syne’, sans-serif”, boxShadow: `0 3px 16px ${PINK}44` };
+const inp = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", fontFamily: "‘Syne’, sans-serif", boxSizing: "border-box" };
+const btn = { width: "100%", background: PINK, color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "‘Syne’, sans-serif", boxShadow: `0 3px 16px ${PINK}44` };
 
 return (
-<div style={{ position: “fixed”, inset: 0, background: “rgba(0,0,0,0.5)”, zIndex: 100, display: “flex”, alignItems: “flex-end” }}
+<div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "flex-end" }}
 onClick={e => e.target === e.currentTarget && onClose()}>
-<div style={{ background: “#fff”, borderRadius: “18px 18px 0 0”, width: “100%”, maxHeight: “92vh”, overflowY: “auto”, padding: 20, fontFamily: “‘Syne’, sans-serif” }}>
-<div style={{ display: “flex”, justifyContent: “space-between”, alignItems: “center”, marginBottom: 16 }}>
-<div style={{ fontWeight: 800, fontSize: 17, color: DARK }}>{isNew ? “Importeren” : “Bewerken”}</div>
-<button onClick={onClose} style={{ background: “#f0f0f0”, border: “none”, borderRadius: “50%”, width: 30, height: 30, cursor: “pointer”, fontSize: 12 }}>✕</button>
+<div style={{ background: "#fff", borderRadius: "18px 18px 0 0", width: "100%", maxHeight: "92vh", overflowY: "auto", padding: 20, fontFamily: "‘Syne’, sans-serif" }}>
+<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+<div style={{ fontWeight: 800, fontSize: 17, color: DARK }}>{isNew ? "Importeren" : "Bewerken"}</div>
+<button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: "50%", width: 30, height: 30, cursor: "pointer", fontSize: 12 }}>✕</button>
 </div>
 
 ```
@@ -337,7 +337,7 @@ onClick={e => e.target === e.currentTarget && onClose()}>
               <div style={{ fontSize: 11, color: PINK, fontWeight: 700, marginTop: 6 }}>{imagePreviews.length} foto{imagePreviews.length > 1 ? "'s" : ""} geselecteerd</div>
             </div>
           ) : (
-            <><div style={{ fontSize: 30, marginBottom: 6 }}>📸</div><div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>Foto's van bladmuziek</div><div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>Tik om te selecteren — meerdere mogelijk</div></>
+            <><div style={{ fontSize: 30, marginBottom: 6 }}>📸</div><div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>Foto's van bladmuziek</div><div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>Tik om te selecteren -- meerdere mogelijk</div></>
           )}
         </div>
         <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={e => handleImages(e.target.files)} />
@@ -382,39 +382,39 @@ onClick={e => e.target === e.currentTarget && onClose()}>
 function SessionModal({ exercise, onClose }) {
 const [bpm, setBpm] = useState(exercise.bpm || 100);
 const [stars, setStars] = useState(0);
-const [note, setNote] = useState(””);
+const [note, setNote] = useState("");
 const maxBpm = exercise.sessions?.reduce((m, s) => Math.max(m, s.bpm), 0) || 0;
 
 const handleSave = async () => {
 const session = { id: Date.now(), date: new Date().toISOString(), bpm, stars, note };
-await updateDoc(doc(db, “exercises”, exercise.id), { sessions: […(exercise.sessions || []), session] });
+await updateDoc(doc(db, "exercises", exercise.id), { sessions: […(exercise.sessions || []), session] });
 onClose();
 };
 
 return (
-<div style={{ position: “fixed”, inset: 0, background: “rgba(0,0,0,0.5)”, zIndex: 100, display: “flex”, alignItems: “flex-end” }}
+<div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "flex-end" }}
 onClick={e => e.target === e.currentTarget && onClose()}>
-<div style={{ background: “#fff”, borderRadius: “18px 18px 0 0”, width: “100%”, padding: 20, fontFamily: “‘Syne’, sans-serif” }}>
+<div style={{ background: "#fff", borderRadius: "18px 18px 0 0", width: "100%", padding: 20, fontFamily: "‘Syne’, sans-serif" }}>
 <div style={{ fontWeight: 800, fontSize: 16, color: DARK, marginBottom: 2 }}>Sessie loggen</div>
-<div style={{ fontSize: 12, color: “#999”, marginBottom: 16 }}>{exercise.title}</div>
+<div style={{ fontSize: 12, color: "#999", marginBottom: 16 }}>{exercise.title}</div>
 <div style={{ marginBottom: 16 }}>
-<div style={{ display: “flex”, justifyContent: “space-between”, marginBottom: 4 }}>
-<label style={{ fontSize: 11, fontWeight: 700, color: “#888” }}>TEMPO</label>
+<div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+<label style={{ fontSize: 11, fontWeight: 700, color: "#888" }}>TEMPO</label>
 <span style={{ fontWeight: 800, color: PINK, fontSize: 14 }}>{bpm} BPM</span>
 </div>
-<input type=“range” min={40} max={240} value={bpm} onChange={e => setBpm(Number(e.target.value))} style={{ width: “100%”, accentColor: PINK }} />
-{maxBpm > 0 && <div style={{ fontSize: 10, color: “#999”, marginTop: 3 }}>Max: <strong style={{ color: PINK }}>{maxBpm} BPM</strong>{bpm > maxBpm && <span style={{ color: “#00B84C”, marginLeft: 6 }}>🎉 Nieuw record!</span>}</div>}
+<input type="range" min={40} max={240} value={bpm} onChange={e => setBpm(Number(e.target.value))} style={{ width: "100%", accentColor: PINK }} />
+{maxBpm > 0 && <div style={{ fontSize: 10, color: "#999", marginTop: 3 }}>Max: <strong style={{ color: PINK }}>{maxBpm} BPM</strong>{bpm > maxBpm && <span style={{ color: "#00B84C", marginLeft: 6 }}>🎉 Nieuw record!</span>}</div>}
 </div>
 <div style={{ marginBottom: 14 }}>
-<label style={{ fontSize: 11, fontWeight: 700, color: “#888”, display: “block”, marginBottom: 6 }}>BEOORDELING</label>
+<label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 6 }}>BEOORDELING</label>
 <StarRating value={stars} onChange={setStars} size={22} />
 </div>
 <div style={{ marginBottom: 16 }}>
-<label style={{ fontSize: 11, fontWeight: 700, color: “#888”, display: “block”, marginBottom: 4 }}>NOTITIE</label>
-<textarea value={note} onChange={e => setNote(e.target.value)} placeholder=“Wat ging goed? Wat wil je verbeteren?” rows={2}
-style={{ width: “100%”, padding: “10px 12px”, borderRadius: 10, border: “1.5px solid #eee”, fontSize: 13, outline: “none”, fontFamily: “‘Syne’, sans-serif”, resize: “none”, boxSizing: “border-box” }} />
+<label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>NOTITIE</label>
+<textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Wat ging goed? Wat wil je verbeteren?" rows={2}
+style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", fontFamily: "‘Syne’, sans-serif", resize: "none", boxSizing: "border-box" }} />
 </div>
-<button onClick={handleSave} style={{ width: “100%”, background: PINK, color: “#fff”, border: “none”, borderRadius: 12, padding: “13px”, fontSize: 14, fontWeight: 800, cursor: “pointer”, fontFamily: “‘Syne’, sans-serif”, boxShadow: `0 3px 16px ${PINK}44` }}>✓ Sessie opslaan</button>
+<button onClick={handleSave} style={{ width: "100%", background: PINK, color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "‘Syne’, sans-serif", boxShadow: `0 3px 16px ${PINK}44` }}>✓ Sessie opslaan</button>
 </div>
 </div>
 );
@@ -430,28 +430,28 @@ const incomplete = !pages.length || !ex.mp3Url;
 const [confirm, setConfirm] = useState(false);
 
 return (
-<div style={{ background: “#fff”, borderRadius: 14, padding: 13, boxShadow: “0 1px 8px rgba(0,0,0,0.06)”, fontFamily: “‘Syne’, sans-serif” }}>
-<div style={{ display: “flex”, gap: 10, alignItems: “flex-start” }}>
+<div style={{ background: "#fff", borderRadius: 14, padding: 13, boxShadow: "0 1px 8px rgba(0,0,0,0.06)", fontFamily: "‘Syne’, sans-serif" }}>
+<div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
 {pages[0]?.imageUrl
-? <img src={pages[0].imageUrl} alt=“tab” onClick={() => onView(ex)} style={{ width: 50, height: 50, borderRadius: 9, objectFit: “cover”, border: `2px solid ${PINK_LIGHT}`, cursor: “pointer”, flexShrink: 0 }} />
-: <div onClick={() => onView(ex)} style={{ width: 50, height: 50, borderRadius: 9, background: PINK_LIGHT, display: “flex”, alignItems: “center”, justifyContent: “center”, fontSize: 20, flexShrink: 0, cursor: “pointer” }}>🎸</div>
+? <img src={pages[0].imageUrl} alt="tab" onClick={() => onView(ex)} style={{ width: 50, height: 50, borderRadius: 9, objectFit: "cover", border: `2px solid ${PINK_LIGHT}`, cursor: "pointer", flexShrink: 0 }} />
+: <div onClick={() => onView(ex)} style={{ width: 50, height: 50, borderRadius: 9, background: PINK_LIGHT, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, cursor: "pointer" }}>🎸</div>
 }
 <div style={{ flex: 1, minWidth: 0 }}>
-<div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 3, overflow: “hidden”, textOverflow: “ellipsis”, whiteSpace: “nowrap” }}>{ex.title}</div>
-<div style={{ display: “flex”, gap: 5, alignItems: “center”, marginBottom: 4, flexWrap: “wrap” }}>
+<div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ex.title}</div>
+<div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 4, flexWrap: "wrap" }}>
 {mod && <Badge level={mod.level} />}
-<span style={{ fontSize: 10, color: “#bbb” }}>{mod?.name}</span>
-{pages.length > 1 && <span style={{ fontSize: 9, color: PINK, fontWeight: 700, background: PINK_LIGHT, padding: “1px 6px”, borderRadius: 8 }}>{pages.length} pagina’s</span>}
+<span style={{ fontSize: 10, color: "#bbb" }}>{mod?.name}</span>
+{pages.length > 1 && <span style={{ fontSize: 9, color: PINK, fontWeight: 700, background: PINK_LIGHT, padding: "1px 6px", borderRadius: 8 }}>{pages.length} pagina’s</span>}
 </div>
-<div style={{ display: “flex”, gap: 10, fontSize: 11, color: “#bbb” }}>
+<div style={{ display: "flex", gap: 10, fontSize: 11, color: "#bbb" }}>
 <span><span style={{ color: PINK, fontWeight: 700 }}>{maxBpm || ex.bpm}</span> BPM</span>
 <span><span style={{ color: PINK, fontWeight: 700 }}>{ex.sessions?.length || 0}</span> sessies</span>
 {avgStars > 0 && <span>⭐ {avgStars}</span>}
 </div>
 </div>
-<div style={{ display: “flex”, flexDirection: “column”, gap: 4, flexShrink: 0 }}>
-<button onClick={() => onEdit(ex)} style={{ background: “#f4f4f4”, color: “#666”, border: “none”, borderRadius: 7, padding: “5px 8px”, fontSize: 12, cursor: “pointer” }}>✏️</button>
-<button onClick={() => setConfirm(true)} style={{ background: “#FFF0F0”, color: “#E53935”, border: “none”, borderRadius: 7, padding: “5px 8px”, fontSize: 12, cursor: “pointer” }}>🗑</button>
+<div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+<button onClick={() => onEdit(ex)} style={{ background: "#f4f4f4", color: "#666", border: "none", borderRadius: 7, padding: "5px 8px", fontSize: 12, cursor: "pointer" }}>✏️</button>
+<button onClick={() => setConfirm(true)} style={{ background: "#FFF0F0", color: "#E53935", border: "none", borderRadius: 7, padding: "5px 8px", fontSize: 12, cursor: "pointer" }}>🗑</button>
 </div>
 </div>
 
@@ -491,7 +491,7 @@ return (
 }
 
 export default function App() {
-const [tab, setTab] = useState(“home”);
+const [tab, setTab] = useState("home");
 const [exercises, setExercises] = useState([]);
 const [modules] = useState(MODULES_DEFAULT);
 const [loading, setLoading] = useState(true);
@@ -502,7 +502,7 @@ const [viewEx, setViewEx] = useState(null);
 const [filterModule, setFilterModule] = useState(null);
 
 useEffect(() => {
-const q = query(collection(db, “exercises”), orderBy(“createdAt”, “desc”));
+const q = query(collection(db, "exercises"), orderBy("createdAt", "desc"));
 const unsub = onSnapshot(q, snap => {
 setExercises(snap.docs.map(d => ({ id: d.id, …d.data() })));
 setLoading(false);
@@ -513,28 +513,28 @@ return () => unsub();
 const handleDelete = async (ex) => {
 for (const p of (ex.pages || [])) { if (p.imageUrl) try { await deleteObject(ref(storage, p.imageUrl)); } catch {} }
 if (ex.mp3Url) try { await deleteObject(ref(storage, ex.mp3Url)); } catch {}
-await deleteDoc(doc(db, “exercises”, ex.id));
+await deleteDoc(doc(db, "exercises", ex.id));
 };
 
 const handleAddMp3 = async (exId, url) => {
-await updateDoc(doc(db, “exercises”, exId), { mp3Url: url });
+await updateDoc(doc(db, "exercises", exId), { mp3Url: url });
 if (viewEx?.id === exId) setViewEx(v => ({ …v, mp3Url: url }));
 };
 
 const handleAddPages = async (exId, pages) => {
-await updateDoc(doc(db, “exercises”, exId), {
+await updateDoc(doc(db, "exercises", exId), {
 pages, imageUrl: pages[0]?.imageUrl || null,
-tabText: pages.map(p => p.tabText).filter(Boolean).join(”\n\n— pagina —\n\n”),
+tabText: pages.map(p => p.tabText).filter(Boolean).join("\n\n-- pagina --\n\n"),
 });
 if (viewEx?.id === exId) setViewEx(v => ({ …v, pages }));
 };
 
 const totalSessions = exercises.reduce((a, e) => a + (e.sessions?.length || 0), 0);
 const filtered = filterModule ? exercises.filter(e => e.moduleId === filterModule) : exercises;
-const today = new Date().toLocaleDateString(“nl-NL”, { weekday: “short”, day: “numeric”, month: “short” }).toUpperCase();
+const today = new Date().toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" }).toUpperCase();
 
 return (
-<div style={{ maxWidth: 390, margin: “0 auto”, minHeight: “100vh”, background: BG, fontFamily: “‘Syne’, sans-serif” }}>
+<div style={{ maxWidth: 390, margin: "0 auto", minHeight: "100vh", background: BG, fontFamily: "‘Syne’, sans-serif" }}>
 <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}input,select,textarea,button{font-family:'Syne',sans-serif}::-webkit-scrollbar{width:0}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}`}</style>
 
 ```
