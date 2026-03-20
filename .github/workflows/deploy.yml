@@ -15,6 +15,10 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Fix smart quotes
+        run: |
+          sed -i 's/\xe2\x80\x9c/"/g; s/\xe2\x80\x9d/"/g; s/\xe2\x80\x98/'"'"'/g; s/\xe2\x80\x99/'"'"'/g; s/\xe2\x80\xa6/.../g' src/App.jsx
+
       - name: Install dependencies
         run: npm install
 
