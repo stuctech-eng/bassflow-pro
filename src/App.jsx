@@ -126,7 +126,7 @@ tabText = parsed.tabText || ""; aiNotes = parsed.notes || "";
 newPages.push({ imageUrl: url, tabText, aiNotes });
 }
 setUploadProgress(null);
-const allPages = […pages, …newPages];
+const allPages = pages.concat(newPages);
 onAddPages(allPages);
 setPage(pages.length);
 };
@@ -239,7 +239,7 @@ const r = new FileReader();
 r.onload = e => {
 previews[idx] = e.target.result;
 loaded++;
-if (loaded === arr.length) setImagePreviews([…previews]);
+if (loaded === arr.length) setImagePreviews(Array.from(previews));
 };
 r.readAsDataURL(f);
 });
@@ -348,7 +348,7 @@ onClick={e => e.target === e.currentTarget && onClose()}>
         </div>
         <div style={{ marginBottom: 10 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>MODULE</label>
-          <select value={moduleId} onChange={e => setModuleId(e.target.value)} style={{ ...inp, background: "#fff" }}>
+          <select value={moduleId} onChange={e => setModuleId(e.target.value)} style={Object.assign({}, inp, { background: "#fff" }}>
             {modules.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
@@ -387,7 +387,7 @@ const maxBpm = exercise.sessions?.reduce((m, s) => Math.max(m, s.bpm), 0) || 0;
 
 const handleSave = async () => {
 const session = { id: Date.now(), date: new Date().toISOString(), bpm, stars, note };
-await updateDoc(doc(db, "exercises", exercise.id), { sessions: […(exercise.sessions || []), session] });
+await updateDoc(doc(db, "exercises", exercise.id), { sessions: [Array.from(exercise.sessions || []), session] });
 onClose();
 };
 
@@ -504,7 +504,7 @@ const [filterModule, setFilterModule] = useState(null);
 useEffect(() => {
 const q = query(collection(db, "exercises"), orderBy("createdAt", "desc"));
 const unsub = onSnapshot(q, snap => {
-setExercises(snap.docs.map(d => ({ id: d.id, …d.data() })));
+setExercises(snap.docs.map(d => (Object.assign({ id: d.id }, d.data()))));
 setLoading(false);
 });
 return () => unsub();
@@ -518,7 +518,7 @@ await deleteDoc(doc(db, "exercises", ex.id));
 
 const handleAddMp3 = async (exId, url) => {
 await updateDoc(doc(db, "exercises", exId), { mp3Url: url });
-if (viewEx?.id === exId) setViewEx(v => ({ …v, mp3Url: url }));
+if (viewEx?.id === exId) setViewEx(v => Object.assign({}, v, { mp3Url: url }));
 };
 
 const handleAddPages = async (exId, pages) => {
@@ -526,7 +526,7 @@ await updateDoc(doc(db, "exercises", exId), {
 pages, imageUrl: pages[0]?.imageUrl || null,
 tabText: pages.map(p => p.tabText).filter(Boolean).join("\n\n-- pagina --\n\n"),
 });
-if (viewEx?.id === exId) setViewEx(v => ({ …v, pages }));
+if (viewEx?.id === exId) setViewEx(v => Object.assign({}, v, { pages }));
 };
 
 const totalSessions = exercises.reduce((a, e) => a + (e.sessions?.length || 0), 0);
@@ -623,7 +623,7 @@ return (
           {filterModule && <button onClick={() => setFilterModule(null)} style={{ background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 20, padding: "3px 10px", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>✕ Filter</button>}
         </div>
         <div style={{ display: "flex", gap: 5, overflowX: "auto", marginBottom: 12, paddingBottom: 4 }}>
-          {[{ id: null, name: "Alle" }, ...modules].map(m => (
+          {[{ id: null, name: "Alle" }].concat(modules).map(m => (
             <div key={m.id ?? "all"} onClick={() => setFilterModule(m.id ?? null)}
               style={{ flexShrink: 0, padding: "4px 11px", borderRadius: 20, background: filterModule === (m.id ?? null) ? PINK : "#fff", color: filterModule === (m.id ?? null) ? "#fff" : "#999", fontWeight: 700, fontSize: 10, cursor: "pointer", border: `1.5px solid ${filterModule === (m.id ?? null) ? PINK : "#eee"}` }}>
               {m.name}
