@@ -7,6 +7,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -14,26 +15,32 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
-      - name: Fix encoding issues
+      - name: Fix encoding issues (safe)
         run: |
-          python3 - <<'EOF'
-          import re
-          with open('src/App.jsx', 'rb') as f:
-              content = f.read()
-          content = content.replace(b'\xe2\x80\x9c', b'"')
-          content = content.replace(b'\xe2\x80\x9d', b'"')
-          content = content.replace(b'\xe2\x80\x98', b"'")
-          content = content.replace(b'\xe2\x80\x99', b"'")
-          content = content.replace(b'\xe2\x80\xa6', b'...')
-          content = content.replace(b'\xe2\x80\x93', b'-')
-          with open('src/App.jsx', 'wb') as f:
-              f.write(content)
-          print('Fixed encoding issues')
-          EOF
+          if [ -f src/App.jsx ]; then
+            python3 - <<'EOF'
+import re
+with open('src/App.jsx', 'rb') as f:
+    content = f.read()
+
+content = content.replace(b'\xe2\x80\x9c', b'"')
+content = content.replace(b'\xe2\x80\x9d', b'"')
+content = content.replace(b'\xe2\x80\x98', b"'")
+content = content.replace(b'\xe2\x80\x99', b"'")
+content = content.replace(b'\xe2\x80\xa6', b'...')
+content = content.replace(b'\xe2\x80\x93', b'-')
+
+with open('src/App.jsx', 'wb') as f:
+    f.write(content)
+
+print("Encoding fixed")
+EOF
+          fi
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build
         run: npm run build
