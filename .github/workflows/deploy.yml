@@ -1,4 +1,4 @@
-name: Deploy BassFlow Pro to Firebase
+name: BassFlow Pro to Firebase
 
 on:
   push:
@@ -6,8 +6,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
-
+    runs-on: ubu
     steps:
       - uses: actions/checkout@v4
 
