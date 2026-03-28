@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const PINK = "#FF2D7A";
 const PINK_LIGHT = "#FFE0EE";
@@ -26,9 +26,85 @@ function Badge({ level }) {
   );
 }
 
+function NieuweOefening({ onSave, onClose }) {
+  const [titel, setTitel] = useState("");
+  const [moduleId, setModuleId] = useState("mod1");
+  const [bpm, setBpm] = useState(100);
+
+  function handleSave() {
+    if (!titel.trim()) return;
+    const oefening = {
+      id: Date.now(),
+      titel: titel,
+      moduleId: moduleId,
+      bpm: bpm,
+      sessies: [],
+      datum: new Date().toISOString()
+    };
+    onSave(oefening);
+    onClose();
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "flex-end" }}
+      onClick={function(e) { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: "#fff", borderRadius: "18px 18px 0 0", width: "100%", padding: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div style={{ fontWeight: 800, fontSize: 17, color: DARK }}>Nieuwe oefening</div>
+          <button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: "50%", width: 30, height: 30, cursor: "pointer" }}>X</button>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>TITEL</label>
+          <input value={titel} onChange={function(e) { setTitel(e.target.value); }}
+            placeholder="Naam van de oefening"
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>MODULE</label>
+          <select value={moduleId} onChange={function(e) { setModuleId(e.target.value); }}
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", background: "#fff", boxSizing: "border-box" }}>
+            {MODULES.map(function(m) {
+              return <option key={m.id} value={m.id}>{m.name}</option>;
+            })}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: "#888" }}>TEMPO</label>
+            <span style={{ fontWeight: 800, color: PINK, fontSize: 13 }}>{bpm} BPM</span>
+          </div>
+          <input type="range" min={40} max={240} value={bpm}
+            onChange={function(e) { setBpm(Number(e.target.value)); }}
+            style={{ width: "100%", accentColor: PINK }} />
+        </div>
+
+        <button onClick={handleSave}
+          style={{ width: "100%", background: PINK, color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+          Opslaan
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [tab, setTab] = useState("home");
+  const [oefeningen, setOefeningen] = useState(function() {
+    try { return JSON.parse(localStorage.getItem("bf_oefeningen") || "[]"); } catch(e) { return []; }
+  });
+  const [showNieuw, setShowNieuw] = useState(false);
   const today = new Date().toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" }).toUpperCase();
+
+  useEffect(function() {
+    localStorage.setItem("bf_oefeningen", JSON.stringify(oefeningen));
+  }, [oefeningen]);
+
+  function handleSave(oefening) {
+    setOefeningen(function(prev) { return [oefening].concat(prev); });
+  }
 
   return (
     <div style={{ maxWidth: 390, margin: "0 auto", minHeight: "100vh", background: BG, fontFamily: "sans-serif" }}>
@@ -38,7 +114,7 @@ export default function App() {
           <div>
             <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
             <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.4</span>
+            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.5</span>
           </div>
           <div style={{ fontSize: 9, color: "#bbb", fontWeight: 700 }}>{today}</div>
         </div>
@@ -55,7 +131,7 @@ export default function App() {
               <div style={{ fontSize: 11, color: "#bbb" }}>Importeer je eigen oefeningen en houd je voortgang bij.</div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 7, marginBottom: 20 }}>
-              {[["Oefeningen", 0], ["Sessies", 0], ["Modules", 4]].map(function(item) {
+              {[["Oefeningen", oefeningen.length], ["Sessies", 0], ["Modules", 4]].map(function(item) {
                 return (
                   <div key={item[0]} style={{ background: "#EDEDEB", borderRadius: 11, padding: "10px 6px", textAlign: "center" }}>
                     <div style={{ fontWeight: 800, fontSize: 22, color: PINK }}>{item[1]}</div>
@@ -64,33 +140,57 @@ export default function App() {
                 );
               })}
             </div>
-            <div style={{ marginBottom: 12, fontWeight: 800, fontSize: 14, color: DARK }}>Modules</div>
-            <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 4, marginBottom: 20 }}>
-              {MODULES.map(function(m) {
-                return (
-                  <div key={m.id} onClick={function() { setTab("modules"); }}
-                    style={{ minWidth: 110, background: "#fff", borderRadius: 11, padding: 11, cursor: "pointer", flexShrink: 0, borderTop: "3px solid " + m.color, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
-                    <Badge level={m.level} />
-                    <div style={{ fontWeight: 800, fontSize: 11, color: DARK, marginTop: 5, marginBottom: 2 }}>{m.name}</div>
-                    <div style={{ fontSize: 9, color: "#bbb" }}>0 oefeningen</div>
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ textAlign: "center", padding: "20px" }}>
-              <div style={{ fontSize: 40 }}>🎸</div>
-              <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Nog geen oefeningen.</div>
-            </div>
+            <div style={{ marginBottom: 12, fontWeight: 800, fontSize: 14, color: DARK }}>Recente oefeningen</div>
+            {oefeningen.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "20px" }}>
+                <div style={{ fontSize: 40 }}>🎸</div>
+                <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Nog geen oefeningen. Tik op + om te beginnen!</div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                {oefeningen.slice(0, 3).map(function(ex) {
+                  const mod = MODULES.find(function(m) { return m.id === ex.moduleId; });
+                  return (
+                    <div key={ex.id} style={{ background: "#fff", borderRadius: 14, padding: 13, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 4 }}>{ex.titel}</div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {mod ? <Badge level={mod.level} /> : null}
+                        <span style={{ fontSize: 10, color: "#bbb" }}>{mod ? mod.name : ""}</span>
+                        <span style={{ fontSize: 10, color: "#bbb", marginLeft: "auto" }}>{ex.bpm} BPM</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : null}
 
         {tab === "oefeningen" ? (
           <div>
             <div style={{ fontWeight: 800, fontSize: 17, color: DARK, marginBottom: 16 }}>Oefeningen</div>
-            <div style={{ textAlign: "center", padding: "40px 20px" }}>
-              <div style={{ fontSize: 40 }}>🎸</div>
-              <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Nog geen oefeningen.</div>
-            </div>
+            {oefeningen.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "40px 20px" }}>
+                <div style={{ fontSize: 40 }}>🎸</div>
+                <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Nog geen oefeningen.</div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                {oefeningen.map(function(ex) {
+                  const mod = MODULES.find(function(m) { return m.id === ex.moduleId; });
+                  return (
+                    <div key={ex.id} style={{ background: "#fff", borderRadius: 14, padding: 13, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 4 }}>{ex.titel}</div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {mod ? <Badge level={mod.level} /> : null}
+                        <span style={{ fontSize: 10, color: "#bbb" }}>{mod ? mod.name : ""}</span>
+                        <span style={{ fontSize: 10, color: "#bbb", marginLeft: "auto" }}>{ex.bpm} BPM</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : null}
 
@@ -99,6 +199,7 @@ export default function App() {
             <div style={{ fontWeight: 800, fontSize: 17, color: DARK, marginBottom: 16 }}>Modules</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
               {MODULES.map(function(m) {
+                const cnt = oefeningen.filter(function(e) { return e.moduleId === m.id; }).length;
                 return (
                   <div key={m.id} style={{ background: "#fff", borderRadius: 12, padding: 13, borderLeft: "4px solid " + m.color, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -107,7 +208,7 @@ export default function App() {
                         <Badge level={m.level} />
                       </div>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontWeight: 800, color: m.color, fontSize: 18 }}>0</div>
+                        <div style={{ fontWeight: 800, color: m.color, fontSize: 18 }}>{cnt}</div>
                         <div style={{ fontSize: 9, color: "#bbb" }}>oefeningen</div>
                       </div>
                     </div>
@@ -139,7 +240,7 @@ export default function App() {
           { id: "voortgang", label: "Voortgang" }
         ].map(function(item) {
           return (
-            <button key={item.id} onClick={function() { if (!item.isPlus) setTab(item.id); }}
+            <button key={item.id} onClick={function() { if (item.isPlus) { setShowNieuw(true); } else { setTab(item.id); } }}
               style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, background: "none", border: "none", cursor: "pointer", color: tab === item.id ? PINK : "#bbb" }}>
               {item.isPlus ? (
                 <div style={{ width: 38, height: 38, background: PINK, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "#fff", marginTop: -13 }}>+</div>
@@ -151,6 +252,8 @@ export default function App() {
           );
         })}
       </div>
+
+      {showNieuw ? <NieuweOefening onSave={handleSave} onClose={function() { setShowNieuw(false); }} /> : null}
 
     </div>
   );
