@@ -28,7 +28,6 @@ function Badge({ level }) {
 
 function DetailScherm({ oefening, onClose, onEdit }) {
   const mod = MODULES.find(function(m) { return m.id === oefening.moduleId; });
-
   return (
     <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
       <div style={{ display: "flex", alignItems: "center", padding: "13px 16px", borderBottom: "1px solid #eee", gap: 10 }}>
@@ -39,7 +38,6 @@ function DetailScherm({ oefening, onClose, onEdit }) {
           bewerk
         </button>
       </div>
-
       <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
         <div style={{ background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 1px 8px rgba(0,0,0,0.06)", marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
@@ -57,24 +55,38 @@ function DetailScherm({ oefening, onClose, onEdit }) {
             </div>
           </div>
         </div>
-
         <div style={{ fontWeight: 800, fontSize: 14, color: DARK, marginBottom: 10 }}>Sessies</div>
-        {(oefening.sessies || []).length === 0 ? (
-          <div style={{ textAlign: "center", padding: "30px 20px", background: "#fff", borderRadius: 14, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
-            <div style={{ fontSize: 32 }}>📋</div>
-            <div style={{ color: "#bbb", marginTop: 8, fontSize: 12 }}>Nog geen sessies. Komt in stap 8!</div>
+        <div style={{ textAlign: "center", padding: "30px 20px", background: "#fff", borderRadius: 14, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize: 32 }}>📋</div>
+          <div style={{ color: "#bbb", marginTop: 8, fontSize: 12 }}>Sessies komen in stap 9!</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModuleScherm({ module, oefeningen, onClose, onOpen, onEdit, onDelete }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
+      <div style={{ display: "flex", alignItems: "center", padding: "13px 16px", borderBottom: "1px solid #eee", gap: 10, borderTop: "3px solid " + module.color }}>
+        <button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontWeight: 800 }}>←</button>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 800, fontSize: 15, color: DARK }}>{module.name}</div>
+          <Badge level={module.level} />
+        </div>
+        <div style={{ fontWeight: 800, color: module.color, fontSize: 18 }}>{oefeningen.length}</div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+        {oefeningen.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 20px" }}>
+            <div style={{ fontSize: 40 }}>🎸</div>
+            <div style={{ color: "#bbb", marginTop: 8, fontSize: 12 }}>Geen oefeningen in deze module.</div>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {oefening.sessies.map(function(s) {
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            {oefeningen.map(function(ex) {
               return (
-                <div key={s.id} style={{ background: "#fff", borderRadius: 12, padding: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 12, color: "#999" }}>{new Date(s.datum).toLocaleDateString("nl-NL")}</span>
-                    <span style={{ fontWeight: 700, color: PINK, fontSize: 13 }}>{s.bpm} BPM</span>
-                  </div>
-                  {s.notitie ? <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>{s.notitie}</div> : null}
-                </div>
+                <OefeningKaart key={ex.id} oefening={ex} onOpen={onOpen} onEdit={onEdit} onDelete={onDelete} />
               );
             })}
           </div>
@@ -112,14 +124,12 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
           <div style={{ fontWeight: 800, fontSize: 17, color: DARK }}>{isNieuw ? "Nieuwe oefening" : "Bewerken"}</div>
           <button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: "50%", width: 30, height: 30, cursor: "pointer" }}>X</button>
         </div>
-
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>TITEL</label>
           <input value={titel} onChange={function(e) { setTitel(e.target.value); }}
             placeholder="Naam van de oefening"
             style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
         </div>
-
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>MODULE</label>
           <select value={moduleId} onChange={function(e) { setModuleId(e.target.value); }}
@@ -129,7 +139,6 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
             })}
           </select>
         </div>
-
         <div style={{ marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
             <label style={{ fontSize: 11, fontWeight: 700, color: "#888" }}>TEMPO</label>
@@ -139,7 +148,6 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
             onChange={function(e) { setBpm(Number(e.target.value)); }}
             style={{ width: "100%", accentColor: PINK }} />
         </div>
-
         <button onClick={handleSave}
           style={{ width: "100%", background: PINK, color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
           {isNieuw ? "Opslaan" : "Wijzigingen opslaan"}
@@ -163,7 +171,6 @@ function OefeningKaart({ oefening, onOpen, onEdit, onDelete }) {
           <span style={{ fontSize: 10, color: PINK, fontWeight: 700, marginLeft: "auto" }}>{oefening.bpm} BPM</span>
         </div>
       </div>
-
       <div style={{ display: "flex", gap: 6, borderTop: "1px solid #f0f0f0", paddingTop: 8 }}>
         <button onClick={function() { onOpen(oefening); }}
           style={{ flex: 1, background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 8, padding: "7px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
@@ -178,7 +185,6 @@ function OefeningKaart({ oefening, onOpen, onEdit, onDelete }) {
           wis
         </button>
       </div>
-
       {bevestig ? (
         <div style={{ marginTop: 10, background: "#FFF5F5", borderRadius: 10, padding: 12, textAlign: "center", border: "1px solid #FFD0D0" }}>
           <div style={{ fontSize: 12, color: DARK, marginBottom: 8, fontWeight: 700 }}>Verwijderen?</div>
@@ -206,6 +212,7 @@ export default function App() {
   const [showNieuw, setShowNieuw] = useState(false);
   const [bewerkOefening, setBewerkOefening] = useState(null);
   const [openOefening, setOpenOefening] = useState(null);
+  const [openModule, setOpenModule] = useState(null);
   const today = new Date().toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" }).toUpperCase();
 
   useEffect(function() {
@@ -252,7 +259,7 @@ export default function App() {
           <div>
             <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
             <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.7</span>
+            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.8</span>
           </div>
           <div style={{ fontSize: 9, color: "#bbb", fontWeight: 700 }}>{today}</div>
         </div>
@@ -297,7 +304,8 @@ export default function App() {
               {MODULES.map(function(m) {
                 const cnt = oefeningen.filter(function(e) { return e.moduleId === m.id; }).length;
                 return (
-                  <div key={m.id} style={{ background: "#fff", borderRadius: 12, padding: 13, borderLeft: "4px solid " + m.color, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+                  <div key={m.id} onClick={function() { setOpenModule(m); }}
+                    style={{ background: "#fff", borderRadius: 12, padding: 13, borderLeft: "4px solid " + m.color, boxShadow: "0 1px 6px rgba(0,0,0,0.05)", cursor: "pointer" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div>
                         <div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 3 }}>{m.name}</div>
@@ -320,7 +328,7 @@ export default function App() {
             <div style={{ fontWeight: 800, fontSize: 17, color: DARK, marginBottom: 16 }}>Voortgang</div>
             <div style={{ textAlign: "center", padding: "40px 20px" }}>
               <div style={{ fontSize: 40 }}>📈</div>
-              <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Komt in stap 8!</div>
+              <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Komt in stap 9!</div>
             </div>
           </div>
         ) : null}
@@ -352,6 +360,7 @@ export default function App() {
       {showNieuw ? <OefeningFormulier onSave={handleSave} onClose={function() { setShowNieuw(false); }} /> : null}
       {bewerkOefening ? <OefeningFormulier oefening={bewerkOefening} onSave={handleSave} onClose={function() { setBewerkOefening(null); }} /> : null}
       {openOefening ? <DetailScherm oefening={openOefening} onClose={function() { setOpenOefening(null); }} onEdit={setBewerkOefening} /> : null}
+      {openModule ? <ModuleScherm module={openModule} oefeningen={oefeningen.filter(function(e) { return e.moduleId === openModule.id; })} onClose={function() { setOpenModule(null); }} onOpen={setOpenOefening} onEdit={setBewerkOefening} onDelete={handleDelete} /> : null}
 
     </div>
   );
