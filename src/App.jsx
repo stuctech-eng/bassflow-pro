@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const PINK = "#FF2D7A";
 const PINK_LIGHT = "#FFE0EE";
@@ -35,64 +35,92 @@ function BpmGrafiek({ sessies }) {
   const hoogte = 50;
   const breedte = 260;
   const stap = breedte / (bpms.length - 1);
-
   const punten = bpms.map(function(b, i) {
     const x = i * stap;
     const y = hoogte - ((b - min) / range) * (hoogte - 8);
     return x + "," + y;
   }).join(" ");
-
   return (
     <div style={{ marginTop: 10 }}>
       <div style={{ fontSize: 9, color: "#bbb", marginBottom: 4 }}>BPM PROGRESSIE</div>
       <svg width={breedte} height={hoogte} style={{ overflow: "visible" }}>
-        <polyline
-          points={punten}
-          fill="none"
-          stroke={PINK}
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
+        <polyline points={punten} fill="none" stroke={PINK} strokeWidth="2" strokeLinejoin="round" />
         {bpms.map(function(b, i) {
           const x = i * stap;
           const y = hoogte - ((b - min) / range) * (hoogte - 8);
           return <circle key={i} cx={x} cy={y} r="3" fill={PINK} />;
         })}
       </svg>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "#bbb", marginTop: 2 }}>
-        <span>sessie 1</span>
-        <span>sessie {bpms.length}</span>
-      </div>
     </div>
   );
 }
 
-function FotoUpload({ foto, onFoto }) {
-  const ref = { current: null };
+function FotoGalerij({ fotos, onFotoToevoegen }) {
+  const [pagina, setPagina] = useState(0);
+  const touchStart = useRef(null);
+  const invoerRef = useRef();
 
-  function handleKies(e) {
-    const f = e.target.files[0];
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = function(ev) { onFoto(ev.target.result); };
-    reader.readAsDataURL(f);
+  function handleTouch(e) { touchStart.current = e.touches[0].clientX; }
+  function handleTouchEnd(e) {
+    if (!touchStart.current) return;
+    const diff = touchStart.current - e.changedTouches[0].clientX;
+    if (diff > 50 && pagina < fotos.length - 1) setPagina(function(p) { return p + 1; });
+    if (diff < -50 && pagina > 0) setPagina(function(p) { return p - 1; });
+    touchStart.current = null;
+  }
+
+  function handleNieuweFoto(e) {
+    const bestanden = Array.from(e.target.files);
+    bestanden.forEach(function(f) {
+      const r = new FileReader();
+      r.onload = function(ev) { onFotoToevoegen(ev.target.result); };
+      r.readAsDataURL(f);
+    });
+  }
+
+  if (fotos.length === 0) {
+    return (
+      <div onClick={function() { invoerRef.current.click(); }}
+        style={{ border: "2px dashed #ddd", borderRadius: 12, padding: 32, textAlign: "center", cursor: "pointer", background: "#fafafa", marginBottom: 16 }}>
+        <div style={{ fontSize: 32, marginBottom: 6 }}>📸</div>
+        <div style={{ fontSize: 13, color: "#999" }}>Tik om foto toe te voegen</div>
+        <input ref={invoerRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleNieuweFoto} />
+      </div>
+    );
   }
 
   return (
-    <div style={{ marginBottom: 12 }}>
-      <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>FOTO</label>
-      <div onClick={function() { document.getElementById("foto-input").click(); }}
-        style={{ border: "2px dashed " + (foto ? PINK : "#ddd"), borderRadius: 12, padding: foto ? 8 : 20, textAlign: "center", cursor: "pointer", background: foto ? PINK_LIGHT : "#fafafa" }}>
-        {foto ? (
-          <img src={foto} alt="tab" style={{ maxHeight: 120, borderRadius: 8 }} />
-        ) : (
-          <div>
-            <div style={{ fontSize: 24, marginBottom: 4 }}>📸</div>
-            <div style={{ fontSize: 12, color: "#999" }}>Tik om foto te kiezen</div>
-          </div>
-        )}
+    <div style={{ marginBottom: 16 }}>
+      <div onTouchStart={handleTouch} onTouchEnd={handleTouchEnd}
+        style={{ position: "relative", borderRadius: 12, overflow: "hidden" }}>
+        <img src={fotos[pagina]} alt={"foto " + (pagina + 1)} style={{ width: "100%", display: "block", borderRadius: 12 }} />
+        <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 12 }}>
+          {pagina + 1}/{fotos.length}
+        </div>
       </div>
-      <input id="foto-input" type="file" accept="image/*" style={{ display: "none" }} onChange={handleKies} />
+      <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 8, alignItems: "center" }}>
+        <button onClick={function() { setPagina(function(p) { return Math.max(0, p - 1); }); }}
+          disabled={pagina === 0}
+          style={{ background: pagina === 0 ? "#eee" : PINK, color: pagina === 0 ? "#bbb" : "#fff", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 12, cursor: pagina === 0 ? "default" : "pointer" }}>
+          ←
+        </button>
+        {fotos.map(function(_, i) {
+          return (
+            <div key={i} onClick={function() { setPagina(i); }}
+              style={{ width: i === pagina ? 18 : 7, height: 7, borderRadius: 4, background: i === pagina ? PINK : "#ddd", cursor: "pointer", transition: "all .2s" }} />
+          );
+        })}
+        <button onClick={function() { setPagina(function(p) { return Math.min(fotos.length - 1, p + 1); }); }}
+          disabled={pagina === fotos.length - 1}
+          style={{ background: pagina === fotos.length - 1 ? "#eee" : PINK, color: pagina === fotos.length - 1 ? "#bbb" : "#fff", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 12, cursor: pagina === fotos.length - 1 ? "default" : "pointer" }}>
+          →
+        </button>
+        <button onClick={function() { invoerRef.current.click(); }}
+          style={{ background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", marginLeft: 4 }}>
+          + foto
+        </button>
+        <input ref={invoerRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleNieuweFoto} />
+      </div>
     </div>
   );
 }
@@ -103,13 +131,7 @@ function SessieFormulier({ oefening, onSave, onClose }) {
   const maxBpm = (oefening.sessies || []).reduce(function(m, s) { return Math.max(m, s.bpm); }, 0);
 
   function handleSave() {
-    const sessie = {
-      id: Date.now(),
-      bpm: bpm,
-      notitie: notitie,
-      datum: new Date().toISOString()
-    };
-    onSave(sessie);
+    onSave({ id: Date.now(), bpm: bpm, notitie: notitie, datum: new Date().toISOString() });
     onClose();
   }
 
@@ -127,9 +149,7 @@ function SessieFormulier({ oefening, onSave, onClose }) {
             <label style={{ fontSize: 11, fontWeight: 700, color: "#888" }}>TEMPO</label>
             <span style={{ fontWeight: 800, color: PINK, fontSize: 14 }}>{bpm} BPM</span>
           </div>
-          <input type="range" min={40} max={240} value={bpm}
-            onChange={function(e) { setBpm(Number(e.target.value)); }}
-            style={{ width: "100%", accentColor: PINK }} />
+          <input type="range" min={40} max={240} value={bpm} onChange={function(e) { setBpm(Number(e.target.value)); }} style={{ width: "100%", accentColor: PINK }} />
           {maxBpm > 0 ? (
             <div style={{ fontSize: 10, color: "#999", marginTop: 3 }}>
               Max: <strong style={{ color: PINK }}>{maxBpm} BPM</strong>
@@ -139,13 +159,10 @@ function SessieFormulier({ oefening, onSave, onClose }) {
         </div>
         <div style={{ marginBottom: 20 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>NOTITIE</label>
-          <textarea value={notitie} onChange={function(e) { setNotitie(e.target.value); }}
-            placeholder="Wat ging goed?"
-            rows={3}
+          <textarea value={notitie} onChange={function(e) { setNotitie(e.target.value); }} placeholder="Wat ging goed?" rows={3}
             style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", resize: "none", boxSizing: "border-box" }} />
         </div>
-        <button onClick={handleSave}
-          style={{ width: "100%", background: PINK, color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+        <button onClick={handleSave} style={{ width: "100%", background: PINK, color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
           Sessie opslaan
         </button>
       </div>
@@ -153,10 +170,11 @@ function SessieFormulier({ oefening, onSave, onClose }) {
   );
 }
 
-function DetailScherm({ oefening, onClose, onEdit, onSessieAdd }) {
+function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onFotoToevoegen }) {
   const mod = MODULES.find(function(m) { return m.id === oefening.moduleId; });
   const [showSessie, setShowSessie] = useState(false);
   const maxBpm = (oefening.sessies || []).reduce(function(m, s) { return Math.max(m, s.bpm); }, 0);
+  const fotos = oefening.fotos || (oefening.foto ? [oefening.foto] : []);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
@@ -169,9 +187,7 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd }) {
         </button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-        {oefening.foto ? (
-          <img src={oefening.foto} alt="tab" style={{ width: "100%", borderRadius: 12, marginBottom: 16 }} />
-        ) : null}
+        <FotoGalerij fotos={fotos} onFotoToevoegen={function(dataUrl) { onFotoToevoegen(oefening.id, dataUrl); }} />
 
         <div style={{ background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 1px 8px rgba(0,0,0,0.06)", marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
@@ -206,7 +222,7 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd }) {
         {(oefening.sessies || []).length === 0 ? (
           <div style={{ textAlign: "center", padding: "30px 20px", background: "#fff", borderRadius: 14, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
             <div style={{ fontSize: 32 }}>📋</div>
-            <div style={{ color: "#bbb", marginTop: 8, fontSize: 12 }}>Nog geen sessies. Tik op + Sessie!</div>
+            <div style={{ color: "#bbb", marginTop: 8, fontSize: 12 }}>Nog geen sessies.</div>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -265,7 +281,19 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
   const [titel, setTitel] = useState(oefening ? oefening.titel : "");
   const [moduleId, setModuleId] = useState(oefening ? oefening.moduleId : "mod1");
   const [bpm, setBpm] = useState(oefening ? oefening.bpm : 100);
-  const [foto, setFoto] = useState(oefening ? oefening.foto : null);
+  const [fotos, setFotos] = useState(oefening ? (oefening.fotos || (oefening.foto ? [oefening.foto] : [])) : []);
+  const invoerRef = useRef();
+
+  function handleFotos(e) {
+    const bestanden = Array.from(e.target.files);
+    bestanden.forEach(function(f) {
+      const r = new FileReader();
+      r.onload = function(ev) {
+        setFotos(function(prev) { return prev.concat([ev.target.result]); });
+      };
+      r.readAsDataURL(f);
+    });
+  }
 
   function handleSave() {
     if (!titel.trim()) return;
@@ -274,7 +302,8 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
       titel: titel,
       moduleId: moduleId,
       bpm: bpm,
-      foto: foto,
+      fotos: fotos,
+      foto: fotos[0] || null,
       sessies: oefening ? oefening.sessies : [],
       datum: oefening ? oefening.datum : new Date().toISOString()
     };
@@ -291,21 +320,39 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
           <button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: "50%", width: 30, height: 30, cursor: "pointer" }}>X</button>
         </div>
 
-        <FotoUpload foto={foto} onFoto={setFoto} />
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>FOTO'S</label>
+          <div onClick={function() { invoerRef.current.click(); }}
+            style={{ border: "2px dashed " + (fotos.length > 0 ? PINK : "#ddd"), borderRadius: 12, padding: fotos.length > 0 ? 8 : 20, textAlign: "center", cursor: "pointer", background: fotos.length > 0 ? PINK_LIGHT : "#fafafa", marginBottom: 6 }}>
+            {fotos.length > 0 ? (
+              <div>
+                <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+                  {fotos.map(function(f, i) {
+                    return <img key={i} src={f} alt={"foto " + (i+1)} style={{ height: 70, borderRadius: 8, flexShrink: 0 }} />;
+                  })}
+                </div>
+                <div style={{ fontSize: 11, color: PINK, fontWeight: 700, marginTop: 6 }}>{fotos.length} foto's -- tik om meer toe te voegen</div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 24, marginBottom: 4 }}>📸</div>
+                <div style={{ fontSize: 12, color: "#999" }}>Tik om foto's te kiezen -- meerdere mogelijk</div>
+              </div>
+            )}
+          </div>
+          <input ref={invoerRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleFotos} />
+        </div>
 
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>TITEL</label>
-          <input value={titel} onChange={function(e) { setTitel(e.target.value); }}
-            placeholder="Naam van de oefening"
+          <input value={titel} onChange={function(e) { setTitel(e.target.value); }} placeholder="Naam van de oefening"
             style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
         </div>
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>MODULE</label>
           <select value={moduleId} onChange={function(e) { setModuleId(e.target.value); }}
             style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", background: "#fff", boxSizing: "border-box" }}>
-            {MODULES.map(function(m) {
-              return <option key={m.id} value={m.id}>{m.name}</option>;
-            })}
+            {MODULES.map(function(m) { return <option key={m.id} value={m.id}>{m.name}</option>; })}
           </select>
         </div>
         <div style={{ marginBottom: 20 }}>
@@ -313,12 +360,9 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
             <label style={{ fontSize: 11, fontWeight: 700, color: "#888" }}>TEMPO</label>
             <span style={{ fontWeight: 800, color: PINK, fontSize: 13 }}>{bpm} BPM</span>
           </div>
-          <input type="range" min={40} max={240} value={bpm}
-            onChange={function(e) { setBpm(Number(e.target.value)); }}
-            style={{ width: "100%", accentColor: PINK }} />
+          <input type="range" min={40} max={240} value={bpm} onChange={function(e) { setBpm(Number(e.target.value)); }} style={{ width: "100%", accentColor: PINK }} />
         </div>
-        <button onClick={handleSave}
-          style={{ width: "100%", background: PINK, color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+        <button onClick={handleSave} style={{ width: "100%", background: PINK, color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
           {isNieuw ? "Opslaan" : "Wijzigingen opslaan"}
         </button>
       </div>
@@ -328,17 +372,21 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
 
 function OefeningKaart({ oefening, onOpen, onEdit, onDelete }) {
   const mod = MODULES.find(function(m) { return m.id === oefening.moduleId; });
+  const fotos = oefening.fotos || (oefening.foto ? [oefening.foto] : []);
   const [bevestig, setBevestig] = useState(false);
 
   return (
     <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 8px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-      {oefening.foto ? (
-        <img src={oefening.foto} alt="tab" onClick={function() { onOpen(oefening); }}
+      {fotos.length > 0 ? (
+        <img src={fotos[0]} alt="tab" onClick={function() { onOpen(oefening); }}
           style={{ width: "100%", height: 100, objectFit: "cover", cursor: "pointer", display: "block" }} />
       ) : null}
       <div style={{ padding: 13 }}>
         <div onClick={function() { onOpen(oefening); }} style={{ cursor: "pointer", marginBottom: 8 }}>
-          <div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 4 }}>{oefening.titel}</div>
+          <div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 4 }}>
+            {oefening.titel}
+            {fotos.length > 1 ? <span style={{ fontSize: 10, color: PINK, fontWeight: 700, marginLeft: 6, background: PINK_LIGHT, padding: "1px 6px", borderRadius: 8 }}>{fotos.length} foto's</span> : null}
+          </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             {mod ? <Badge level={mod.level} /> : null}
             <span style={{ fontSize: 10, color: "#bbb" }}>{mod ? mod.name : ""}</span>
@@ -346,31 +394,16 @@ function OefeningKaart({ oefening, onOpen, onEdit, onDelete }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, borderTop: "1px solid #f0f0f0", paddingTop: 8 }}>
-          <button onClick={function() { onOpen(oefening); }}
-            style={{ flex: 1, background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 8, padding: "7px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-            open
-          </button>
-          <button onClick={function() { onEdit(oefening); }}
-            style={{ background: "#f4f4f4", color: "#666", border: "none", borderRadius: 8, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>
-            bewerk
-          </button>
-          <button onClick={function() { setBevestig(true); }}
-            style={{ background: "#FFF0F0", color: "#E53935", border: "none", borderRadius: 8, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>
-            wis
-          </button>
+          <button onClick={function() { onOpen(oefening); }} style={{ flex: 1, background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 8, padding: "7px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>open</button>
+          <button onClick={function() { onEdit(oefening); }} style={{ background: "#f4f4f4", color: "#666", border: "none", borderRadius: 8, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>bewerk</button>
+          <button onClick={function() { setBevestig(true); }} style={{ background: "#FFF0F0", color: "#E53935", border: "none", borderRadius: 8, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>wis</button>
         </div>
         {bevestig ? (
           <div style={{ marginTop: 10, background: "#FFF5F5", borderRadius: 10, padding: 12, textAlign: "center", border: "1px solid #FFD0D0" }}>
             <div style={{ fontSize: 12, color: DARK, marginBottom: 8, fontWeight: 700 }}>Verwijderen?</div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={function() { setBevestig(false); }}
-                style={{ flex: 1, background: "#eee", border: "none", borderRadius: 8, padding: "7px", fontSize: 12, cursor: "pointer" }}>
-                Annuleren
-              </button>
-              <button onClick={function() { onDelete(oefening.id); }}
-                style={{ flex: 1, background: "#E53935", color: "#fff", border: "none", borderRadius: 8, padding: "7px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                Verwijderen
-              </button>
+              <button onClick={function() { setBevestig(false); }} style={{ flex: 1, background: "#eee", border: "none", borderRadius: 8, padding: "7px", fontSize: 12, cursor: "pointer" }}>Annuleren</button>
+              <button onClick={function() { onDelete(oefening.id); }} style={{ flex: 1, background: "#E53935", color: "#fff", border: "none", borderRadius: 8, padding: "7px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Verwijderen</button>
             </div>
           </div>
         ) : null}
@@ -397,9 +430,7 @@ export default function App() {
   function handleSave(data) {
     setOefeningen(function(prev) {
       const bestaat = prev.find(function(e) { return e.id === data.id; });
-      if (bestaat) {
-        return prev.map(function(e) { return e.id === data.id ? data : e; });
-      }
+      if (bestaat) return prev.map(function(e) { return e.id === data.id ? data : e; });
       return [data].concat(prev);
     });
   }
@@ -418,6 +449,23 @@ export default function App() {
     setOpenOefening(function(prev) {
       if (!prev || prev.id !== oefeningId) return prev;
       return Object.assign({}, prev, { sessies: (prev.sessies || []).concat([sessie]) });
+    });
+  }
+
+  function handleFotoToevoegen(oefeningId, dataUrl) {
+    setOefeningen(function(prev) {
+      return prev.map(function(e) {
+        if (e.id !== oefeningId) return e;
+        const oudeFotos = e.fotos || (e.foto ? [e.foto] : []);
+        const nieuweFotos = oudeFotos.concat([dataUrl]);
+        return Object.assign({}, e, { fotos: nieuweFotos, foto: nieuweFotos[0] });
+      });
+    });
+    setOpenOefening(function(prev) {
+      if (!prev || prev.id !== oefeningId) return prev;
+      const oudeFotos = prev.fotos || (prev.foto ? [prev.foto] : []);
+      const nieuweFotos = oudeFotos.concat([dataUrl]);
+      return Object.assign({}, prev, { fotos: nieuweFotos, foto: nieuweFotos[0] });
     });
   }
 
@@ -443,20 +491,18 @@ export default function App() {
 
   return (
     <div style={{ maxWidth: 390, margin: "0 auto", minHeight: "100vh", background: BG, fontFamily: "sans-serif" }}>
-
       <div style={{ background: "#fff", padding: "13px 16px 10px", borderBottom: "1px solid #f0f0f0", position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
             <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.10</span>
+            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.11</span>
           </div>
           <div style={{ fontSize: 9, color: "#bbb", fontWeight: 700 }}>{today}</div>
         </div>
       </div>
 
       <div style={{ padding: 14, paddingBottom: 80 }}>
-
         {tab === "home" ? (
           <div>
             <div style={{ marginBottom: 16 }}>
@@ -547,7 +593,6 @@ export default function App() {
             )}
           </div>
         ) : null}
-
       </div>
 
       <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 390, background: "#fff", borderTop: "1px solid #f0f0f0", display: "flex", padding: "6px 0 12px", zIndex: 20 }}>
@@ -574,9 +619,8 @@ export default function App() {
 
       {showNieuw ? <OefeningFormulier onSave={handleSave} onClose={function() { setShowNieuw(false); }} /> : null}
       {bewerkOefening ? <OefeningFormulier oefening={bewerkOefening} onSave={handleSave} onClose={function() { setBewerkOefening(null); }} /> : null}
-      {openOefening ? <DetailScherm oefening={openOefening} onClose={function() { setOpenOefening(null); }} onEdit={setBewerkOefening} onSessieAdd={handleSessieAdd} /> : null}
+      {openOefening ? <DetailScherm oefening={openOefening} onClose={function() { setOpenOefening(null); }} onEdit={setBewerkOefening} onSessieAdd={handleSessieAdd} onFotoToevoegen={handleFotoToevoegen} /> : null}
       {openModule ? <ModuleScherm module={openModule} oefeningen={oefeningen.filter(function(e) { return e.moduleId === openModule.id; })} onClose={function() { setOpenModule(null); }} onOpen={setOpenOefening} onEdit={setBewerkOefening} onDelete={handleDelete} /> : null}
-
     </div>
   );
 }
