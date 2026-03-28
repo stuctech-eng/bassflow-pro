@@ -26,6 +26,64 @@ function Badge({ level }) {
   );
 }
 
+function DetailScherm({ oefening, onClose, onEdit }) {
+  const mod = MODULES.find(function(m) { return m.id === oefening.moduleId; });
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
+      <div style={{ display: "flex", alignItems: "center", padding: "13px 16px", borderBottom: "1px solid #eee", gap: 10 }}>
+        <button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontWeight: 800 }}>←</button>
+        <div style={{ flex: 1, fontWeight: 800, fontSize: 15, color: DARK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oefening.titel}</div>
+        <button onClick={function() { onEdit(oefening); onClose(); }}
+          style={{ background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 10, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+          bewerk
+        </button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+        <div style={{ background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 1px 8px rgba(0,0,0,0.06)", marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+            {mod ? <Badge level={mod.level} /> : null}
+            <span style={{ fontSize: 12, color: "#999" }}>{mod ? mod.name : ""}</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ background: BG, borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
+              <div style={{ fontWeight: 800, fontSize: 22, color: PINK }}>{oefening.bpm}</div>
+              <div style={{ fontSize: 10, color: "#999" }}>BPM</div>
+            </div>
+            <div style={{ background: BG, borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
+              <div style={{ fontWeight: 800, fontSize: 22, color: PINK }}>{(oefening.sessies || []).length}</div>
+              <div style={{ fontSize: 10, color: "#999" }}>Sessies</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ fontWeight: 800, fontSize: 14, color: DARK, marginBottom: 10 }}>Sessies</div>
+        {(oefening.sessies || []).length === 0 ? (
+          <div style={{ textAlign: "center", padding: "30px 20px", background: "#fff", borderRadius: 14, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
+            <div style={{ fontSize: 32 }}>📋</div>
+            <div style={{ color: "#bbb", marginTop: 8, fontSize: 12 }}>Nog geen sessies. Komt in stap 8!</div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {oefening.sessies.map(function(s) {
+              return (
+                <div key={s.id} style={{ background: "#fff", borderRadius: 12, padding: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: "#999" }}>{new Date(s.datum).toLocaleDateString("nl-NL")}</span>
+                    <span style={{ fontWeight: 700, color: PINK, fontSize: 13 }}>{s.bpm} BPM</span>
+                  </div>
+                  {s.notitie ? <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>{s.notitie}</div> : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function OefeningFormulier({ oefening, onSave, onClose }) {
   const isNieuw = !oefening;
   const [titel, setTitel] = useState(oefening ? oefening.titel : "");
@@ -91,31 +149,34 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
   );
 }
 
-function OefeningKaart({ oefening, onEdit, onDelete }) {
+function OefeningKaart({ oefening, onOpen, onEdit, onDelete }) {
   const mod = MODULES.find(function(m) { return m.id === oefening.moduleId; });
   const [bevestig, setBevestig] = useState(false);
 
   return (
     <div style={{ background: "#fff", borderRadius: 14, padding: 13, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 4 }}>{oefening.titel}</div>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            {mod ? <Badge level={mod.level} /> : null}
-            <span style={{ fontSize: 10, color: "#bbb" }}>{mod ? mod.name : ""}</span>
-            <span style={{ fontSize: 10, color: PINK, fontWeight: 700, marginLeft: "auto" }}>{oefening.bpm} BPM</span>
-          </div>
+      <div onClick={function() { onOpen(oefening); }} style={{ cursor: "pointer", marginBottom: 8 }}>
+        <div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 4 }}>{oefening.titel}</div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {mod ? <Badge level={mod.level} /> : null}
+          <span style={{ fontSize: 10, color: "#bbb" }}>{mod ? mod.name : ""}</span>
+          <span style={{ fontSize: 10, color: PINK, fontWeight: 700, marginLeft: "auto" }}>{oefening.bpm} BPM</span>
         </div>
-        <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-          <button onClick={function() { onEdit(oefening); }}
-            style={{ background: "#f4f4f4", color: "#666", border: "none", borderRadius: 7, padding: "5px 8px", fontSize: 11, cursor: "pointer" }}>
-            bewerk
-          </button>
-          <button onClick={function() { setBevestig(true); }}
-            style={{ background: "#FFF0F0", color: "#E53935", border: "none", borderRadius: 7, padding: "5px 8px", fontSize: 11, cursor: "pointer" }}>
-            wis
-          </button>
-        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, borderTop: "1px solid #f0f0f0", paddingTop: 8 }}>
+        <button onClick={function() { onOpen(oefening); }}
+          style={{ flex: 1, background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 8, padding: "7px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+          open
+        </button>
+        <button onClick={function() { onEdit(oefening); }}
+          style={{ background: "#f4f4f4", color: "#666", border: "none", borderRadius: 8, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>
+          bewerk
+        </button>
+        <button onClick={function() { setBevestig(true); }}
+          style={{ background: "#FFF0F0", color: "#E53935", border: "none", borderRadius: 8, padding: "7px 10px", fontSize: 11, cursor: "pointer" }}>
+          wis
+        </button>
       </div>
 
       {bevestig ? (
@@ -144,6 +205,7 @@ export default function App() {
   });
   const [showNieuw, setShowNieuw] = useState(false);
   const [bewerkOefening, setBewerkOefening] = useState(null);
+  const [openOefening, setOpenOefening] = useState(null);
   const today = new Date().toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" }).toUpperCase();
 
   useEffect(function() {
@@ -164,6 +226,24 @@ export default function App() {
     setOefeningen(function(prev) { return prev.filter(function(e) { return e.id !== id; }); });
   }
 
+  function renderKaarten(lijst) {
+    if (lijst.length === 0) {
+      return (
+        <div style={{ textAlign: "center", padding: "40px 20px" }}>
+          <div style={{ fontSize: 40 }}>🎸</div>
+          <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Nog geen oefeningen.</div>
+        </div>
+      );
+    }
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+        {lijst.map(function(ex) {
+          return <OefeningKaart key={ex.id} oefening={ex} onOpen={setOpenOefening} onEdit={setBewerkOefening} onDelete={handleDelete} />;
+        })}
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: 390, margin: "0 auto", minHeight: "100vh", background: BG, fontFamily: "sans-serif" }}>
 
@@ -172,7 +252,7 @@ export default function App() {
           <div>
             <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
             <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.6</span>
+            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.7</span>
           </div>
           <div style={{ fontSize: 9, color: "#bbb", fontWeight: 700 }}>{today}</div>
         </div>
@@ -199,36 +279,14 @@ export default function App() {
               })}
             </div>
             <div style={{ marginBottom: 12, fontWeight: 800, fontSize: 14, color: DARK }}>Recente oefeningen</div>
-            {oefeningen.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "20px" }}>
-                <div style={{ fontSize: 40 }}>🎸</div>
-                <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Nog geen oefeningen. Tik op + om te beginnen!</div>
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                {oefeningen.slice(0, 3).map(function(ex) {
-                  return <OefeningKaart key={ex.id} oefening={ex} onEdit={setBewerkOefening} onDelete={handleDelete} />;
-                })}
-              </div>
-            )}
+            {renderKaarten(oefeningen.slice(0, 3))}
           </div>
         ) : null}
 
         {tab === "oefeningen" ? (
           <div>
             <div style={{ fontWeight: 800, fontSize: 17, color: DARK, marginBottom: 16 }}>Oefeningen</div>
-            {oefeningen.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px 20px" }}>
-                <div style={{ fontSize: 40 }}>🎸</div>
-                <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Nog geen oefeningen.</div>
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                {oefeningen.map(function(ex) {
-                  return <OefeningKaart key={ex.id} oefening={ex} onEdit={setBewerkOefening} onDelete={handleDelete} />;
-                })}
-              </div>
-            )}
+            {renderKaarten(oefeningen)}
           </div>
         ) : null}
 
@@ -262,7 +320,7 @@ export default function App() {
             <div style={{ fontWeight: 800, fontSize: 17, color: DARK, marginBottom: 16 }}>Voortgang</div>
             <div style={{ textAlign: "center", padding: "40px 20px" }}>
               <div style={{ fontSize: 40 }}>📈</div>
-              <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Komt in stap 7!</div>
+              <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Komt in stap 8!</div>
             </div>
           </div>
         ) : null}
@@ -293,6 +351,7 @@ export default function App() {
 
       {showNieuw ? <OefeningFormulier onSave={handleSave} onClose={function() { setShowNieuw(false); }} /> : null}
       {bewerkOefening ? <OefeningFormulier oefening={bewerkOefening} onSave={handleSave} onClose={function() { setBewerkOefening(null); }} /> : null}
+      {openOefening ? <DetailScherm oefening={openOefening} onClose={function() { setOpenOefening(null); }} onEdit={setBewerkOefening} /> : null}
 
     </div>
   );
