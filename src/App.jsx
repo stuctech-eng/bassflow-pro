@@ -1,8 +1,30 @@
 import { useState } from "react";
 
 const PINK = "#FF2D7A";
+const PINK_LIGHT = "#FFE0EE";
 const DARK = "#1A1A1A";
 const BG = "#F5F4F0";
+
+const MODULES = [
+  { id: "mod1", name: "Fundamenten", level: "Beginner", color: PINK },
+  { id: "mod2", name: "Groove & Ritme", level: "Beginner", color: PINK },
+  { id: "mod3", name: "Muting & Articulatie", level: "Intermediate", color: "#FF8C00" },
+  { id: "mod4", name: "Slap Bass", level: "Advanced", color: "#8B2FC9" },
+];
+
+function Badge({ level }) {
+  const colors = {
+    Beginner: [PINK_LIGHT, PINK],
+    Intermediate: ["#FFF0E0", "#FF8C00"],
+    Advanced: ["#F0E8FF", "#8B2FC9"]
+  };
+  const c = colors[level] || colors.Beginner;
+  return (
+    <span style={{ background: c[0], color: c[1], fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 20, textTransform: "uppercase" }}>
+      {level}
+    </span>
+  );
+}
 
 export default function App() {
   const [tab, setTab] = useState("home");
@@ -16,7 +38,7 @@ export default function App() {
           <div>
             <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
             <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO</span>
+            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.4</span>
           </div>
           <div style={{ fontSize: 9, color: "#bbb", fontWeight: 700 }}>{today}</div>
         </div>
@@ -42,7 +64,20 @@ export default function App() {
                 );
               })}
             </div>
-            <div style={{ textAlign: "center", padding: "40px 20px" }}>
+            <div style={{ marginBottom: 12, fontWeight: 800, fontSize: 14, color: DARK }}>Modules</div>
+            <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 4, marginBottom: 20 }}>
+              {MODULES.map(function(m) {
+                return (
+                  <div key={m.id} onClick={function() { setTab("modules"); }}
+                    style={{ minWidth: 110, background: "#fff", borderRadius: 11, padding: 11, cursor: "pointer", flexShrink: 0, borderTop: "3px solid " + m.color, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+                    <Badge level={m.level} />
+                    <div style={{ fontWeight: 800, fontSize: 11, color: DARK, marginTop: 5, marginBottom: 2 }}>{m.name}</div>
+                    <div style={{ fontSize: 9, color: "#bbb" }}>0 oefeningen</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ textAlign: "center", padding: "20px" }}>
               <div style={{ fontSize: 40 }}>🎸</div>
               <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Nog geen oefeningen.</div>
             </div>
@@ -62,14 +97,34 @@ export default function App() {
         {tab === "modules" ? (
           <div>
             <div style={{ fontWeight: 800, fontSize: 17, color: DARK, marginBottom: 16 }}>Modules</div>
-            <div style={{ color: "#bbb", fontSize: 12 }}>Komt binnenkort...</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              {MODULES.map(function(m) {
+                return (
+                  <div key={m.id} style={{ background: "#fff", borderRadius: 12, padding: 13, borderLeft: "4px solid " + m.color, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 3 }}>{m.name}</div>
+                        <Badge level={m.level} />
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: 800, color: m.color, fontSize: 18 }}>0</div>
+                        <div style={{ fontSize: 9, color: "#bbb" }}>oefeningen</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ) : null}
 
         {tab === "voortgang" ? (
           <div>
             <div style={{ fontWeight: 800, fontSize: 17, color: DARK, marginBottom: 16 }}>Voortgang</div>
-            <div style={{ color: "#bbb", fontSize: 12 }}>Komt binnenkort...</div>
+            <div style={{ textAlign: "center", padding: "40px 20px" }}>
+              <div style={{ fontSize: 40 }}>📈</div>
+              <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Nog geen data.</div>
+            </div>
           </div>
         ) : null}
 
