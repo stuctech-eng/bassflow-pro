@@ -26,8 +26,67 @@ function Badge({ level }) {
   );
 }
 
-function DetailScherm({ oefening, onClose, onEdit }) {
+function SessieFormulier({ oefening, onSave, onClose }) {
+  const [bpm, setBpm] = useState(oefening.bpm);
+  const [notitie, setNotitie] = useState("");
+  const maxBpm = (oefening.sessies || []).reduce(function(m, s) { return Math.max(m, s.bpm); }, 0);
+
+  function handleSave() {
+    const sessie = {
+      id: Date.now(),
+      bpm: bpm,
+      notitie: notitie,
+      datum: new Date().toISOString()
+    };
+    onSave(sessie);
+    onClose();
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
+      onClick={function(e) { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: "#fff", borderRadius: "18px 18px 0 0", width: "100%", padding: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div style={{ fontWeight: 800, fontSize: 17, color: DARK }}>Sessie loggen</div>
+          <button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: "50%", width: 30, height: 30, cursor: "pointer" }}>X</button>
+        </div>
+        <div style={{ fontSize: 12, color: "#999", marginBottom: 16 }}>{oefening.titel}</div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: "#888" }}>TEMPO</label>
+            <span style={{ fontWeight: 800, color: PINK, fontSize: 14 }}>{bpm} BPM</span>
+          </div>
+          <input type="range" min={40} max={240} value={bpm}
+            onChange={function(e) { setBpm(Number(e.target.value)); }}
+            style={{ width: "100%", accentColor: PINK }} />
+          {maxBpm > 0 ? (
+            <div style={{ fontSize: 10, color: "#999", marginTop: 3 }}>
+              Max: <strong style={{ color: PINK }}>{maxBpm} BPM</strong>
+              {bpm > maxBpm ? <span style={{ color: "#00B84C", marginLeft: 6 }}>Nieuw record!</span> : null}
+            </div>
+          ) : null}
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>NOTITIE</label>
+          <textarea value={notitie} onChange={function(e) { setNotitie(e.target.value); }}
+            placeholder="Wat ging goed? Wat wil je verbeteren?"
+            rows={3}
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", resize: "none", boxSizing: "border-box" }} />
+        </div>
+        <button onClick={handleSave}
+          style={{ width: "100%", background: PINK, color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+          Sessie opslaan
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DetailScherm({ oefening, onClose, onEdit, onSessieAdd }) {
   const mod = MODULES.find(function(m) { return m.id === oefening.moduleId; });
+  const [showSessie, setShowSessie] = useState(false);
+  const maxBpm = (oefening.sessies || []).reduce(function(m, s) { return Math.max(m, s.bpm); }, 0);
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
       <div style={{ display: "flex", alignItems: "center", padding: "13px 16px", borderBottom: "1px solid #eee", gap: 10 }}>
@@ -44,30 +103,66 @@ function DetailScherm({ oefening, onClose, onEdit }) {
             {mod ? <Badge level={mod.level} /> : null}
             <span style={{ fontSize: 12, color: "#999" }}>{mod ? mod.name : ""}</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div style={{ background: BG, borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
-              <div style={{ fontWeight: 800, fontSize: 22, color: PINK }}>{oefening.bpm}</div>
-              <div style={{ fontSize: 10, color: "#999" }}>BPM</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div style={{ background: BG, borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
+              <div style={{ fontWeight: 800, fontSize: 20, color: PINK }}>{oefening.bpm}</div>
+              <div style={{ fontSize: 10, color: "#999" }}>Doel BPM</div>
             </div>
-            <div style={{ background: BG, borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
-              <div style={{ fontWeight: 800, fontSize: 22, color: PINK }}>{(oefening.sessies || []).length}</div>
+            <div style={{ background: BG, borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
+              <div style={{ fontWeight: 800, fontSize: 20, color: PINK }}>{maxBpm || "-"}</div>
+              <div style={{ fontSize: 10, color: "#999" }}>Max BPM</div>
+            </div>
+            <div style={{ background: BG, borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
+              <div style={{ fontWeight: 800, fontSize: 20, color: PINK }}>{(oefening.sessies || []).length}</div>
               <div style={{ fontSize: 10, color: "#999" }}>Sessies</div>
             </div>
           </div>
         </div>
-        <div style={{ fontWeight: 800, fontSize: 14, color: DARK, marginBottom: 10 }}>Sessies</div>
-        <div style={{ textAlign: "center", padding: "30px 20px", background: "#fff", borderRadius: 14, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
-          <div style={{ fontSize: 32 }}>📋</div>
-          <div style={{ color: "#bbb", marginTop: 8, fontSize: 12 }}>Sessies komen in stap 9!</div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontWeight: 800, fontSize: 14, color: DARK }}>Sessies</div>
+          <button onClick={function() { setShowSessie(true); }}
+            style={{ background: PINK, color: "#fff", border: "none", borderRadius: 10, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            + Sessie
+          </button>
         </div>
+
+        {(oefening.sessies || []).length === 0 ? (
+          <div style={{ textAlign: "center", padding: "30px 20px", background: "#fff", borderRadius: 14, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
+            <div style={{ fontSize: 32 }}>📋</div>
+            <div style={{ color: "#bbb", marginTop: 8, fontSize: 12 }}>Nog geen sessies. Tik op + Sessie!</div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {oefening.sessies.slice().reverse().map(function(s) {
+              return (
+                <div key={s.id} style={{ background: "#fff", borderRadius: 12, padding: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: "#999" }}>{new Date(s.datum).toLocaleDateString("nl-NL")}</span>
+                    <span style={{ fontWeight: 700, color: PINK, fontSize: 14 }}>{s.bpm} BPM</span>
+                  </div>
+                  {s.notitie ? <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>{s.notitie}</div> : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {showSessie ? (
+        <SessieFormulier
+          oefening={oefening}
+          onSave={function(sessie) { onSessieAdd(oefening.id, sessie); }}
+          onClose={function() { setShowSessie(false); }}
+        />
+      ) : null}
     </div>
   );
 }
 
 function ModuleScherm({ module, oefeningen, onClose, onOpen, onEdit, onDelete }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 150, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
       <div style={{ display: "flex", alignItems: "center", padding: "13px 16px", borderBottom: "1px solid #eee", gap: 10, borderTop: "3px solid " + module.color }}>
         <button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontWeight: 800 }}>←</button>
         <div style={{ flex: 1 }}>
@@ -117,7 +212,7 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "flex-end" }}
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
       onClick={function(e) { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: "#fff", borderRadius: "18px 18px 0 0", width: "100%", padding: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -233,6 +328,22 @@ export default function App() {
     setOefeningen(function(prev) { return prev.filter(function(e) { return e.id !== id; }); });
   }
 
+  function handleSessieAdd(oefeningId, sessie) {
+    setOefeningen(function(prev) {
+      return prev.map(function(e) {
+        if (e.id !== oefeningId) return e;
+        return Object.assign({}, e, { sessies: (e.sessies || []).concat([sessie]) });
+      });
+    });
+    if (openOefening && openOefening.id === oefeningId) {
+      setOpenOefening(function(prev) {
+        return Object.assign({}, prev, { sessies: (prev.sessies || []).concat([sessie]) });
+      });
+    }
+  }
+
+  const totalSessies = oefeningen.reduce(function(a, e) { return a + (e.sessies || []).length; }, 0);
+
   function renderKaarten(lijst) {
     if (lijst.length === 0) {
       return (
@@ -259,7 +370,7 @@ export default function App() {
           <div>
             <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
             <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.8</span>
+            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.9</span>
           </div>
           <div style={{ fontSize: 9, color: "#bbb", fontWeight: 700 }}>{today}</div>
         </div>
@@ -276,7 +387,7 @@ export default function App() {
               <div style={{ fontSize: 11, color: "#bbb" }}>Importeer je eigen oefeningen en houd je voortgang bij.</div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 7, marginBottom: 20 }}>
-              {[["Oefeningen", oefeningen.length], ["Sessies", 0], ["Modules", 4]].map(function(item) {
+              {[["Oefeningen", oefeningen.length], ["Sessies", totalSessies], ["Modules", 4]].map(function(item) {
                 return (
                   <div key={item[0]} style={{ background: "#EDEDEB", borderRadius: 11, padding: "10px 6px", textAlign: "center" }}>
                     <div style={{ fontWeight: 800, fontSize: 22, color: PINK }}>{item[1]}</div>
@@ -326,10 +437,33 @@ export default function App() {
         {tab === "voortgang" ? (
           <div>
             <div style={{ fontWeight: 800, fontSize: 17, color: DARK, marginBottom: 16 }}>Voortgang</div>
-            <div style={{ textAlign: "center", padding: "40px 20px" }}>
-              <div style={{ fontSize: 40 }}>📈</div>
-              <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Komt in stap 9!</div>
-            </div>
+            {oefeningen.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "40px 20px" }}>
+                <div style={{ fontSize: 40 }}>📈</div>
+                <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Nog geen data.</div>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                {oefeningen.map(function(ex) {
+                  const maxBpm = (ex.sessies || []).reduce(function(m, s) { return Math.max(m, s.bpm); }, 0);
+                  return (
+                    <div key={ex.id} style={{ background: "#fff", borderRadius: 12, padding: 13, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
+                      <div style={{ fontWeight: 800, fontSize: 12, color: DARK, marginBottom: 8 }}>{ex.titel}</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                        {[["Doel", ex.bpm, PINK], ["Max", maxBpm || "-", "#00B84C"], ["Sessies", (ex.sessies || []).length, "#FF8C00"]].map(function(item) {
+                          return (
+                            <div key={item[0]} style={{ background: BG, borderRadius: 8, padding: "7px 5px", textAlign: "center" }}>
+                              <div style={{ fontWeight: 800, fontSize: 15, color: item[2] }}>{item[1]}</div>
+                              <div style={{ fontSize: 9, color: "#bbb" }}>{item[0]}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : null}
 
@@ -359,7 +493,7 @@ export default function App() {
 
       {showNieuw ? <OefeningFormulier onSave={handleSave} onClose={function() { setShowNieuw(false); }} /> : null}
       {bewerkOefening ? <OefeningFormulier oefening={bewerkOefening} onSave={handleSave} onClose={function() { setBewerkOefening(null); }} /> : null}
-      {openOefening ? <DetailScherm oefening={openOefening} onClose={function() { setOpenOefening(null); }} onEdit={setBewerkOefening} /> : null}
+      {openOefening ? <DetailScherm oefening={openOefening} onClose={function() { setOpenOefening(null); }} onEdit={setBewerkOefening} onSessieAdd={handleSessieAdd} /> : null}
       {openModule ? <ModuleScherm module={openModule} oefeningen={oefeningen.filter(function(e) { return e.moduleId === openModule.id; })} onClose={function() { setOpenModule(null); }} onOpen={setOpenOefening} onEdit={setBewerkOefening} onDelete={handleDelete} /> : null}
 
     </div>
