@@ -26,22 +26,23 @@ function Badge({ level }) {
   );
 }
 
-function NieuweOefening({ onSave, onClose }) {
-  const [titel, setTitel] = useState("");
-  const [moduleId, setModuleId] = useState("mod1");
-  const [bpm, setBpm] = useState(100);
+function OefeningFormulier({ oefening, onSave, onClose }) {
+  const isNieuw = !oefening;
+  const [titel, setTitel] = useState(oefening ? oefening.titel : "");
+  const [moduleId, setModuleId] = useState(oefening ? oefening.moduleId : "mod1");
+  const [bpm, setBpm] = useState(oefening ? oefening.bpm : 100);
 
   function handleSave() {
     if (!titel.trim()) return;
-    const oefening = {
-      id: Date.now(),
+    const data = {
+      id: oefening ? oefening.id : Date.now(),
       titel: titel,
       moduleId: moduleId,
       bpm: bpm,
-      sessies: [],
-      datum: new Date().toISOString()
+      sessies: oefening ? oefening.sessies : [],
+      datum: oefening ? oefening.datum : new Date().toISOString()
     };
-    onSave(oefening);
+    onSave(data);
     onClose();
   }
 
@@ -50,7 +51,7 @@ function NieuweOefening({ onSave, onClose }) {
       onClick={function(e) { if (e.target === e.currentTarget) onClose(); }}>
       <div style={{ background: "#fff", borderRadius: "18px 18px 0 0", width: "100%", padding: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div style={{ fontWeight: 800, fontSize: 17, color: DARK }}>Nieuwe oefening</div>
+          <div style={{ fontWeight: 800, fontSize: 17, color: DARK }}>{isNieuw ? "Nieuwe oefening" : "Bewerken"}</div>
           <button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: "50%", width: 30, height: 30, cursor: "pointer" }}>X</button>
         </div>
 
@@ -83,9 +84,55 @@ function NieuweOefening({ onSave, onClose }) {
 
         <button onClick={handleSave}
           style={{ width: "100%", background: PINK, color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
-          Opslaan
+          {isNieuw ? "Opslaan" : "Wijzigingen opslaan"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function OefeningKaart({ oefening, onEdit, onDelete }) {
+  const mod = MODULES.find(function(m) { return m.id === oefening.moduleId; });
+  const [bevestig, setBevestig] = useState(false);
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 14, padding: 13, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 4 }}>{oefening.titel}</div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            {mod ? <Badge level={mod.level} /> : null}
+            <span style={{ fontSize: 10, color: "#bbb" }}>{mod ? mod.name : ""}</span>
+            <span style={{ fontSize: 10, color: PINK, fontWeight: 700, marginLeft: "auto" }}>{oefening.bpm} BPM</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+          <button onClick={function() { onEdit(oefening); }}
+            style={{ background: "#f4f4f4", color: "#666", border: "none", borderRadius: 7, padding: "5px 8px", fontSize: 11, cursor: "pointer" }}>
+            bewerk
+          </button>
+          <button onClick={function() { setBevestig(true); }}
+            style={{ background: "#FFF0F0", color: "#E53935", border: "none", borderRadius: 7, padding: "5px 8px", fontSize: 11, cursor: "pointer" }}>
+            wis
+          </button>
+        </div>
+      </div>
+
+      {bevestig ? (
+        <div style={{ marginTop: 10, background: "#FFF5F5", borderRadius: 10, padding: 12, textAlign: "center", border: "1px solid #FFD0D0" }}>
+          <div style={{ fontSize: 12, color: DARK, marginBottom: 8, fontWeight: 700 }}>Verwijderen?</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={function() { setBevestig(false); }}
+              style={{ flex: 1, background: "#eee", border: "none", borderRadius: 8, padding: "7px", fontSize: 12, cursor: "pointer" }}>
+              Annuleren
+            </button>
+            <button onClick={function() { onDelete(oefening.id); }}
+              style={{ flex: 1, background: "#E53935", color: "#fff", border: "none", borderRadius: 8, padding: "7px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              Verwijderen
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -96,14 +143,25 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem("bf_oefeningen") || "[]"); } catch(e) { return []; }
   });
   const [showNieuw, setShowNieuw] = useState(false);
+  const [bewerkOefening, setBewerkOefening] = useState(null);
   const today = new Date().toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" }).toUpperCase();
 
   useEffect(function() {
     localStorage.setItem("bf_oefeningen", JSON.stringify(oefeningen));
   }, [oefeningen]);
 
-  function handleSave(oefening) {
-    setOefeningen(function(prev) { return [oefening].concat(prev); });
+  function handleSave(data) {
+    setOefeningen(function(prev) {
+      const bestaat = prev.find(function(e) { return e.id === data.id; });
+      if (bestaat) {
+        return prev.map(function(e) { return e.id === data.id ? data : e; });
+      }
+      return [data].concat(prev);
+    });
+  }
+
+  function handleDelete(id) {
+    setOefeningen(function(prev) { return prev.filter(function(e) { return e.id !== id; }); });
   }
 
   return (
@@ -114,7 +172,7 @@ export default function App() {
           <div>
             <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
             <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.5</span>
+            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.6</span>
           </div>
           <div style={{ fontSize: 9, color: "#bbb", fontWeight: 700 }}>{today}</div>
         </div>
@@ -149,17 +207,7 @@ export default function App() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                 {oefeningen.slice(0, 3).map(function(ex) {
-                  const mod = MODULES.find(function(m) { return m.id === ex.moduleId; });
-                  return (
-                    <div key={ex.id} style={{ background: "#fff", borderRadius: 14, padding: 13, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
-                      <div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 4 }}>{ex.titel}</div>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        {mod ? <Badge level={mod.level} /> : null}
-                        <span style={{ fontSize: 10, color: "#bbb" }}>{mod ? mod.name : ""}</span>
-                        <span style={{ fontSize: 10, color: "#bbb", marginLeft: "auto" }}>{ex.bpm} BPM</span>
-                      </div>
-                    </div>
-                  );
+                  return <OefeningKaart key={ex.id} oefening={ex} onEdit={setBewerkOefening} onDelete={handleDelete} />;
                 })}
               </div>
             )}
@@ -177,17 +225,7 @@ export default function App() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                 {oefeningen.map(function(ex) {
-                  const mod = MODULES.find(function(m) { return m.id === ex.moduleId; });
-                  return (
-                    <div key={ex.id} style={{ background: "#fff", borderRadius: 14, padding: 13, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
-                      <div style={{ fontWeight: 800, fontSize: 13, color: DARK, marginBottom: 4 }}>{ex.titel}</div>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        {mod ? <Badge level={mod.level} /> : null}
-                        <span style={{ fontSize: 10, color: "#bbb" }}>{mod ? mod.name : ""}</span>
-                        <span style={{ fontSize: 10, color: "#bbb", marginLeft: "auto" }}>{ex.bpm} BPM</span>
-                      </div>
-                    </div>
-                  );
+                  return <OefeningKaart key={ex.id} oefening={ex} onEdit={setBewerkOefening} onDelete={handleDelete} />;
                 })}
               </div>
             )}
@@ -224,7 +262,7 @@ export default function App() {
             <div style={{ fontWeight: 800, fontSize: 17, color: DARK, marginBottom: 16 }}>Voortgang</div>
             <div style={{ textAlign: "center", padding: "40px 20px" }}>
               <div style={{ fontSize: 40 }}>📈</div>
-              <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Nog geen data.</div>
+              <div style={{ color: "#bbb", marginTop: 8, fontSize: 11 }}>Komt in stap 7!</div>
             </div>
           </div>
         ) : null}
@@ -253,7 +291,8 @@ export default function App() {
         })}
       </div>
 
-      {showNieuw ? <NieuweOefening onSave={handleSave} onClose={function() { setShowNieuw(false); }} /> : null}
+      {showNieuw ? <OefeningFormulier onSave={handleSave} onClose={function() { setShowNieuw(false); }} /> : null}
+      {bewerkOefening ? <OefeningFormulier oefening={bewerkOefening} onSave={handleSave} onClose={function() { setBewerkOefening(null); }} /> : null}
 
     </div>
   );
