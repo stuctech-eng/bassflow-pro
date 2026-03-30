@@ -1,7 +1,4 @@
 import { useState, useEffect, useRef } from “react”;
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, orderBy, query } from “firebase/firestore”;
-import { ref, uploadBytes, getDownloadURL } from “firebase/storage”;
-import { db, storage } from “./firebase.js”;
 
 const PINK = “#FF2D7A”;
 const PINK_LIGHT = “#FFE0EE”;
@@ -58,13 +55,7 @@ return <circle key={i} cx={x} cy={y} r="3" fill={PINK} />;
 );
 }
 
-async function uploadFoto(bestand, pad) {
-const storageRef = ref(storage, pad);
-await uploadBytes(storageRef, bestand);
-return await getDownloadURL(storageRef);
-}
-
-function FotoGalerij({ fotos, onFotoToevoegen, uploading }) {
+function FotoGalerij({ fotos, onFotoToevoegen }) {
 const [pagina, setPagina] = useState(0);
 const touchStart = useRef(null);
 const invoerRef = useRef();
@@ -78,9 +69,13 @@ if (diff < -50 && pagina > 0) setPagina(function(p) { return p - 1; });
 touchStart.current = null;
 }
 
-function handleKies(e) {
+function handleNieuweFoto(e) {
 const bestanden = Array.from(e.target.files);
-onFotoToevoegen(bestanden);
+bestanden.forEach(function(f) {
+const r = new FileReader();
+r.onload = function(ev) { onFotoToevoegen(ev.target.result); };
+r.readAsDataURL(f);
+});
 }
 
 if (fotos.length === 0) {
@@ -88,19 +83,10 @@ return (
 <div>
 <div onClick={function() { invoerRef.current.click(); }}
 style={{ border: “2px dashed #ddd”, borderRadius: 12, padding: 32, textAlign: “center”, cursor: “pointer”, background: “#fafafa”, marginBottom: 16 }}>
-{uploading ? (
-<div>
-<div style={{ fontSize: 24, marginBottom: 6 }}>uploading</div>
-<div style={{ fontSize: 12, color: PINK }}>Foto uploaden…</div>
-</div>
-) : (
-<div>
 <div style={{ fontSize: 32, marginBottom: 6 }}>foto</div>
 <div style={{ fontSize: 13, color: “#999” }}>Tik om foto toe te voegen</div>
 </div>
-)}
-</div>
-<input ref={invoerRef} type=“file” accept=“image/*” multiple style={{ display: “none” }} onChange={handleKies} />
+<input ref={invoerRef} type=“file” accept=“image/*” multiple style={{ display: “none” }} onChange={handleNieuweFoto} />
 </div>
 );
 }
@@ -112,11 +98,6 @@ return (
 <div style={{ position: “absolute”, top: 8, right: 8, background: “rgba(0,0,0,0.5)”, color: “#fff”, fontSize: 11, fontWeight: 700, padding: “3px 8px”, borderRadius: 12 }}>
 {pagina + 1}/{fotos.length}
 </div>
-{uploading ? (
-<div style={{ position: “absolute”, inset: 0, background: “rgba(255,45,122,0.3)”, display: “flex”, alignItems: “center”, justifyContent: “center”, borderRadius: 12 }}>
-<div style={{ color: “#fff”, fontWeight: 800, fontSize: 14 }}>Uploaden…</div>
-</div>
-) : null}
 </div>
 <div style={{ display: “flex”, justifyContent: “center”, gap: 5, marginTop: 8, alignItems: “center” }}>
 <button onClick={function() { setPagina(function(p) { return Math.max(0, p - 1); }); }}
@@ -137,9 +118,9 @@ rechts
 </button>
 <button onClick={function() { invoerRef.current.click(); }}
 style={{ background: PINK_LIGHT, color: PINK, border: “none”, borderRadius: 8, padding: “4px 10px”, fontSize: 11, fontWeight: 700, cursor: “pointer”, marginLeft: 4 }}>
-+ foto
+plus foto
 </button>
-<input ref={invoerRef} type=“file” accept=“image/*” multiple style={{ display: “none” }} onChange={handleKies} />
+<input ref={invoerRef} type=“file” accept=“image/*” multiple style={{ display: “none” }} onChange={handleNieuweFoto} />
 </div>
 </div>
 );
@@ -193,20 +174,8 @@ Sessie opslaan
 function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onFotoToevoegen }) {
 const mod = MODULES.find(function(m) { return m.id === oefening.moduleId; });
 const [showSessie, setShowSessie] = useState(false);
-const [uploading, setUploading] = useState(false);
 const maxBpm = (oefening.sessies || []).reduce(function(m, s) { return Math.max(m, s.bpm); }, 0);
-const fotos = oefening.fotos || [];
-
-async function handleFotos(bestanden) {
-setUploading(true);
-for (var i = 0; i < bestanden.length; i++) {
-var bestand = bestanden[i];
-var pad = “fotos/” + oefening.id + “/” + Date.now() + “_” + i + “.jpg”;
-var url = await uploadFoto(bestand, pad);
-await onFotoToevoegen(oefening.id, url);
-}
-setUploading(false);
-}
+const fotos = oefening.fotos || (oefening.foto ? [oefening.foto] : []);
 
 return (
 <div style={{ position: “fixed”, inset: 0, background: “#fff”, zIndex: 200, display: “flex”, flexDirection: “column”, fontFamily: “sans-serif” }}>
@@ -219,66 +188,60 @@ bewerk
 </button>
 </div>
 <div style={{ flex: 1, overflowY: “auto”, padding: 16 }}>
-<FotoGalerij fotos={fotos} onFotoToevoegen={handleFotos} uploading={uploading} />
-
-```
-    <div style={{ background: "#fff", borderRadius: 14, padding: 16, boxShadow: "0 1px 8px rgba(0,0,0,0.06)", marginBottom: 16 }}>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-        {mod ? <Badge level={mod.level} /> : null}
-        <span style={{ fontSize: 12, color: "#999" }}>{mod ? mod.name : ""}</span>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-        <div style={{ background: BG, borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
-          <div style={{ fontWeight: 800, fontSize: 20, color: PINK }}>{oefening.bpm}</div>
-          <div style={{ fontSize: 10, color: "#999" }}>Doel BPM</div>
-        </div>
-        <div style={{ background: BG, borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
-          <div style={{ fontWeight: 800, fontSize: 20, color: PINK }}>{maxBpm || "-"}</div>
-          <div style={{ fontSize: 10, color: "#999" }}>Max BPM</div>
-        </div>
-        <div style={{ background: BG, borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
-          <div style={{ fontWeight: 800, fontSize: 20, color: PINK }}>{(oefening.sessies || []).length}</div>
-          <div style={{ fontSize: 10, color: "#999" }}>Sessies</div>
-        </div>
-      </div>
-      <BpmGrafiek sessies={oefening.sessies} />
-    </div>
-
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-      <div style={{ fontWeight: 800, fontSize: 14, color: DARK }}>Sessies</div>
-      <button onClick={function() { setShowSessie(true); }}
-        style={{ background: PINK, color: "#fff", border: "none", borderRadius: 10, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-        + Sessie
-      </button>
-    </div>
-
-    {(oefening.sessies || []).length === 0 ? (
-      <div style={{ textAlign: "center", padding: "30px 20px", background: "#fff", borderRadius: 14, boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
-        <div style={{ fontSize: 32 }}>lijst</div>
-        <div style={{ color: "#bbb", marginTop: 8, fontSize: 12 }}>Nog geen sessies.</div>
-      </div>
-    ) : (
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {oefening.sessies.slice().reverse().map(function(s) {
-          return (
-            <div key={s.id} style={{ background: "#fff", borderRadius: 12, padding: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 12, color: "#999" }}>{new Date(s.datum).toLocaleDateString("nl-NL")}</span>
-                <span style={{ fontWeight: 700, color: PINK, fontSize: 14 }}>{s.bpm} BPM</span>
-              </div>
-              {s.notitie ? <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>{s.notitie}</div> : null}
-            </div>
-          );
-        })}
-      </div>
-    )}
-  </div>
-  {showSessie ? (
-    <SessieFormulier oefening={oefening} onSave={function(sessie) { onSessieAdd(oefening.id, sessie); }} onClose={function() { setShowSessie(false); }} />
-  ) : null}
+<FotoGalerij fotos={fotos} onFotoToevoegen={function(dataUrl) { onFotoToevoegen(oefening.id, dataUrl); }} />
+<div style={{ background: “#fff”, borderRadius: 14, padding: 16, boxShadow: “0 1px 8px rgba(0,0,0,0.06)”, marginBottom: 16 }}>
+<div style={{ display: “flex”, gap: 8, alignItems: “center”, marginBottom: 12 }}>
+{mod ? <Badge level={mod.level} /> : null}
+<span style={{ fontSize: 12, color: “#999” }}>{mod ? mod.name : “”}</span>
 </div>
-```
-
+<div style={{ display: “grid”, gridTemplateColumns: “1fr 1fr 1fr”, gap: 10 }}>
+<div style={{ background: BG, borderRadius: 10, padding: “10px 8px”, textAlign: “center” }}>
+<div style={{ fontWeight: 800, fontSize: 20, color: PINK }}>{oefening.bpm}</div>
+<div style={{ fontSize: 10, color: “#999” }}>Doel BPM</div>
+</div>
+<div style={{ background: BG, borderRadius: 10, padding: “10px 8px”, textAlign: “center” }}>
+<div style={{ fontWeight: 800, fontSize: 20, color: PINK }}>{maxBpm || “-”}</div>
+<div style={{ fontSize: 10, color: “#999” }}>Max BPM</div>
+</div>
+<div style={{ background: BG, borderRadius: 10, padding: “10px 8px”, textAlign: “center” }}>
+<div style={{ fontWeight: 800, fontSize: 20, color: PINK }}>{(oefening.sessies || []).length}</div>
+<div style={{ fontSize: 10, color: “#999” }}>Sessies</div>
+</div>
+</div>
+<BpmGrafiek sessies={oefening.sessies} />
+</div>
+<div style={{ display: “flex”, justifyContent: “space-between”, alignItems: “center”, marginBottom: 10 }}>
+<div style={{ fontWeight: 800, fontSize: 14, color: DARK }}>Sessies</div>
+<button onClick={function() { setShowSessie(true); }}
+style={{ background: PINK, color: “#fff”, border: “none”, borderRadius: 10, padding: “6px 12px”, fontSize: 12, fontWeight: 700, cursor: “pointer” }}>
+plus Sessie
+</button>
+</div>
+{(oefening.sessies || []).length === 0 ? (
+<div style={{ textAlign: “center”, padding: “30px 20px”, background: “#fff”, borderRadius: 14, boxShadow: “0 1px 8px rgba(0,0,0,0.06)” }}>
+<div style={{ fontSize: 32 }}>lijst</div>
+<div style={{ color: “#bbb”, marginTop: 8, fontSize: 12 }}>Nog geen sessies.</div>
+</div>
+) : (
+<div style={{ display: “flex”, flexDirection: “column”, gap: 8 }}>
+{oefening.sessies.slice().reverse().map(function(s) {
+return (
+<div key={s.id} style={{ background: “#fff”, borderRadius: 12, padding: 12, boxShadow: “0 1px 6px rgba(0,0,0,0.05)” }}>
+<div style={{ display: “flex”, justifyContent: “space-between”, alignItems: “center” }}>
+<span style={{ fontSize: 12, color: “#999” }}>{new Date(s.datum).toLocaleDateString(“nl-NL”)}</span>
+<span style={{ fontWeight: 700, color: PINK, fontSize: 14 }}>{s.bpm} BPM</span>
+</div>
+{s.notitie ? <div style={{ fontSize: 12, color: “#666”, marginTop: 6 }}>{s.notitie}</div> : null}
+</div>
+);
+})}
+</div>
+)}
+</div>
+{showSessie ? (
+<SessieFormulier oefening={oefening} onSave={function(sessie) { onSessieAdd(oefening.id, sessie); }} onClose={function() { setShowSessie(false); }} />
+) : null}
+</div>
 );
 }
 
@@ -316,22 +279,33 @@ const isNieuw = !oefening;
 const [titel, setTitel] = useState(oefening ? oefening.titel : “”);
 const [moduleId, setModuleId] = useState(oefening ? oefening.moduleId : “mod1”);
 const [bpm, setBpm] = useState(oefening ? oefening.bpm : 100);
-const [opslaan, setOpslaan] = useState(false);
+const [fotos, setFotos] = useState(oefening ? (oefening.fotos || (oefening.foto ? [oefening.foto] : [])) : []);
+const invoerRef = useRef();
 
-async function handleSave() {
+function handleFotos(e) {
+const bestanden = Array.from(e.target.files);
+bestanden.forEach(function(f) {
+const r = new FileReader();
+r.onload = function(ev) {
+setFotos(function(prev) { return prev.concat([ev.target.result]); });
+};
+r.readAsDataURL(f);
+});
+}
+
+function handleSave() {
 if (!titel.trim()) return;
-setOpslaan(true);
 const data = {
+id: oefening ? oefening.id : Date.now(),
 titel: titel,
 moduleId: moduleId,
 bpm: bpm,
-fotos: oefening ? (oefening.fotos || []) : [],
-sessies: oefening ? (oefening.sessies || []) : [],
-datum: oefening ? oefening.datum : new Date().toISOString(),
-bijgewerkt: new Date().toISOString()
+fotos: fotos,
+foto: fotos[0] || null,
+sessies: oefening ? oefening.sessies : [],
+datum: oefening ? oefening.datum : new Date().toISOString()
 };
-await onSave(oefening ? oefening.id : null, data);
-setOpslaan(false);
+onSave(data);
 onClose();
 }
 
@@ -342,6 +316,28 @@ onClick={function(e) { if (e.target === e.currentTarget) onClose(); }}>
 <div style={{ display: “flex”, justifyContent: “space-between”, alignItems: “center”, marginBottom: 16 }}>
 <div style={{ fontWeight: 800, fontSize: 17, color: DARK }}>{isNieuw ? “Nieuwe oefening” : “Bewerken”}</div>
 <button onClick={onClose} style={{ background: “#f0f0f0”, border: “none”, borderRadius: “50%”, width: 30, height: 30, cursor: “pointer” }}>X</button>
+</div>
+<div style={{ marginBottom: 12 }}>
+<label style={{ fontSize: 11, fontWeight: 700, color: “#888”, display: “block”, marginBottom: 4 }}>FOTOS</label>
+<div onClick={function() { invoerRef.current.click(); }}
+style={{ border: “2px dashed “ + (fotos.length > 0 ? PINK : “#ddd”), borderRadius: 12, padding: fotos.length > 0 ? 8 : 20, textAlign: “center”, cursor: “pointer”, background: fotos.length > 0 ? PINK_LIGHT : “#fafafa”, marginBottom: 6 }}>
+{fotos.length > 0 ? (
+<div>
+<div style={{ display: “flex”, gap: 6, overflowX: “auto”, paddingBottom: 4 }}>
+{fotos.map(function(f, i) {
+return <img key={i} src={f} alt={“foto “ + (i+1)} style={{ height: 70, borderRadius: 8, flexShrink: 0 }} />;
+})}
+</div>
+<div style={{ fontSize: 11, color: PINK, fontWeight: 700, marginTop: 6 }}>{fotos.length} fotos - tik voor meer</div>
+</div>
+) : (
+<div>
+<div style={{ fontSize: 24, marginBottom: 4 }}>foto</div>
+<div style={{ fontSize: 12, color: “#999” }}>Tik om fotos te kiezen</div>
+</div>
+)}
+</div>
+<input ref={invoerRef} type=“file” accept=“image/*” multiple style={{ display: “none” }} onChange={handleFotos} />
 </div>
 <div style={{ marginBottom: 12 }}>
 <label style={{ fontSize: 11, fontWeight: 700, color: “#888”, display: “block”, marginBottom: 4 }}>TITEL</label>
@@ -362,9 +358,8 @@ style={{ width: “100%”, padding: “10px 12px”, borderRadius: 10, border: 
 </div>
 <input type=“range” min={40} max={240} value={bpm} onChange={function(e) { setBpm(Number(e.target.value)); }} style={{ width: “100%”, accentColor: PINK }} />
 </div>
-<button onClick={handleSave} disabled={opslaan}
-style={{ width: “100%”, background: opslaan ? “#ccc” : PINK, color: “#fff”, border: “none”, borderRadius: 12, padding: “13px”, fontSize: 14, fontWeight: 800, cursor: opslaan ? “default” : “pointer” }}>
-{opslaan ? “Opslaan…” : (isNieuw ? “Opslaan” : “Wijzigingen opslaan”)}
+<button onClick={handleSave} style={{ width: “100%”, background: PINK, color: “#fff”, border: “none”, borderRadius: 12, padding: “13px”, fontSize: 14, fontWeight: 800, cursor: “pointer” }}>
+{isNieuw ? “Opslaan” : “Wijzigingen opslaan”}
 </button>
 </div>
 </div>
@@ -373,7 +368,7 @@ style={{ width: “100%”, background: opslaan ? “#ccc” : PINK, color: “#
 
 function OefeningKaart({ oefening, onOpen, onEdit, onDelete }) {
 const mod = MODULES.find(function(m) { return m.id === oefening.moduleId; });
-const fotos = oefening.fotos || [];
+const fotos = oefening.fotos || (oefening.foto ? [oefening.foto] : []);
 const [bevestig, setBevestig] = useState(false);
 
 return (
@@ -415,8 +410,9 @@ style={{ width: “100%”, height: 100, objectFit: “cover”, cursor: “poin
 
 export default function App() {
 const [tab, setTab] = useState(“home”);
-const [oefeningen, setOefeningen] = useState([]);
-const [laden, setLaden] = useState(true);
+const [oefeningen, setOefeningen] = useState(function() {
+try { return JSON.parse(localStorage.getItem(“bf_oefeningen”) || “[]”); } catch(e) { return []; }
+});
 const [showNieuw, setShowNieuw] = useState(false);
 const [bewerkOefening, setBewerkOefening] = useState(null);
 const [openOefening, setOpenOefening] = useState(null);
@@ -424,48 +420,47 @@ const [openModule, setOpenModule] = useState(null);
 const today = new Date().toLocaleDateString(“nl-NL”, { weekday: “short”, day: “numeric”, month: “short” }).toUpperCase();
 
 useEffect(function() {
-const q = query(collection(db, “oefeningen”), orderBy(“datum”, “desc”));
-const stop = onSnapshot(q, function(snapshot) {
-const data = snapshot.docs.map(function(d) {
-return Object.assign({ id: d.id }, d.data());
+localStorage.setItem(“bf_oefeningen”, JSON.stringify(oefeningen));
+}, [oefeningen]);
+
+function handleSave(data) {
+setOefeningen(function(prev) {
+const bestaat = prev.find(function(e) { return e.id === data.id; });
+if (bestaat) return prev.map(function(e) { return e.id === data.id ? data : e; });
+return [data].concat(prev);
 });
-setOefeningen(data);
-setLaden(false);
+}
+
+function handleDelete(id) {
+setOefeningen(function(prev) { return prev.filter(function(e) { return e.id !== id; }); });
+}
+
+function handleSessieAdd(oefeningId, sessie) {
+setOefeningen(function(prev) {
+return prev.map(function(e) {
+if (e.id !== oefeningId) return e;
+return Object.assign({}, e, { sessies: (e.sessies || []).concat([sessie]) });
 });
-return stop;
-}, []);
-
-async function handleSave(id, data) {
-if (id) {
-await updateDoc(doc(db, “oefeningen”, id), data);
-} else {
-await addDoc(collection(db, “oefeningen”), data);
-}
-}
-
-async function handleDelete(id) {
-await deleteDoc(doc(db, “oefeningen”, id));
-}
-
-async function handleSessieAdd(oefeningId, sessie) {
-const ex = oefeningen.find(function(e) { return e.id === oefeningId; });
-if (!ex) return;
-const nieuweSessies = (ex.sessies || []).concat([sessie]);
-await updateDoc(doc(db, “oefeningen”, oefeningId), { sessies: nieuweSessies });
+});
 setOpenOefening(function(prev) {
 if (!prev || prev.id !== oefeningId) return prev;
-return Object.assign({}, prev, { sessies: nieuweSessies });
+return Object.assign({}, prev, { sessies: (prev.sessies || []).concat([sessie]) });
 });
 }
 
-async function handleFotoToevoegen(oefeningId, url) {
-const ex = oefeningen.find(function(e) { return e.id === oefeningId; });
-if (!ex) return;
-const oudeFotos = ex.fotos || [];
-const nieuweFotos = oudeFotos.concat([url]);
-await updateDoc(doc(db, “oefeningen”, oefeningId), { fotos: nieuweFotos });
+function handleFotoToevoegen(oefeningId, dataUrl) {
+setOefeningen(function(prev) {
+return prev.map(function(e) {
+if (e.id !== oefeningId) return e;
+const oudeFotos = e.fotos || (e.foto ? [e.foto] : []);
+const nieuweFotos = oudeFotos.concat([dataUrl]);
+return Object.assign({}, e, { fotos: nieuweFotos, foto: nieuweFotos[0] });
+});
+});
 setOpenOefening(function(prev) {
 if (!prev || prev.id !== oefeningId) return prev;
+const oudeFotos = prev.fotos || (prev.foto ? [prev.foto] : []);
+const nieuweFotos = oudeFotos.concat([dataUrl]);
 return Object.assign({}, prev, { fotos: nieuweFotos });
 });
 }
@@ -473,9 +468,6 @@ return Object.assign({}, prev, { fotos: nieuweFotos });
 const totalSessies = oefeningen.reduce(function(a, e) { return a + (e.sessies || []).length; }, 0);
 
 function renderKaarten(lijst) {
-if (laden) {
-return <div style={{ textAlign: “center”, padding: “40px 20px”, color: “#bbb”, fontSize: 12 }}>Laden…</div>;
-}
 if (lijst.length === 0) {
 return (
 <div style={{ textAlign: “center”, padding: “40px 20px” }}>
@@ -500,7 +492,7 @@ return (
 <div>
 <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
 <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-<span style={{ fontSize: 9, color: “#ccc”, marginLeft: 6 }}>PRO v0.12</span>
+<span style={{ fontSize: 9, color: “#ccc”, marginLeft: 6 }}>PRO v0.11</span>
 </div>
 <div style={{ fontSize: 9, color: “#bbb”, fontWeight: 700 }}>{today}</div>
 </div>
