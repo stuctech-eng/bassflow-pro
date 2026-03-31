@@ -18,7 +18,11 @@ const MODULES = [
 function useOrientation() {
   const [landscape, setLandscape] = useState(window.innerWidth > window.innerHeight);
   useEffect(function() {
-    function check() { setLandscape(window.innerWidth > window.innerHeight); }
+    function check() {
+      setTimeout(function() {
+        setLandscape(window.innerWidth > window.innerHeight);
+      }, 100);
+    }
     window.addEventListener("resize", check);
     window.addEventListener("orientationchange", check);
     return function() {
@@ -117,7 +121,7 @@ function SessieFormulier({ oefening, onSave, onClose }) {
   );
 }
 
-function TablatureViewer({ fotos, fotoIndex, setFotoIndex }) {
+function TablatureViewer({ fotos, fotoIndex, setFotoIndex, witteAchtergrond }) {
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const touchStart = useRef(null);
@@ -172,12 +176,16 @@ function TablatureViewer({ fotos, fotoIndex, setFotoIndex }) {
     }
   }
 
+  const bg = witteAchtergrond ? "#fff" : "#111";
+  const tellerBg = witteAchtergrond ? "rgba(0,0,0,0.12)" : "rgba(0,0,0,0.6)";
+  const tellerKleur = witteAchtergrond ? "#333" : "#fff";
+
   if (fotos.length === 0) {
     return (
-      <div style={{ flex: 1, background: "#111", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", color: "#444" }}>
+      <div style={{ flex: 1, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", color: witteAchtergrond ? "#ccc" : "#444" }}>
         <div style={{ fontSize: 36, marginBottom: 8 }}>🎸</div>
         <div style={{ fontSize: 13 }}>Geen tablature</div>
-        <div style={{ fontSize: 10, marginTop: 4, color: "#333" }}>Voeg toe via bewerken</div>
+        <div style={{ fontSize: 10, marginTop: 4, color: witteAchtergrond ? "#ddd" : "#333" }}>Voeg toe via bewerken</div>
       </div>
     );
   }
@@ -187,7 +195,7 @@ function TablatureViewer({ fotos, fotoIndex, setFotoIndex }) {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      style={{ flex: 1, background: "#111", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", touchAction: "none", position: "relative" }}>
+      style={{ flex: 1, background: bg, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", touchAction: "none", position: "relative" }}>
       <img src={fotos[fotoIndex]} alt="tablature"
         style={{
           width: "100%", height: "100%", objectFit: "contain",
@@ -197,13 +205,13 @@ function TablatureViewer({ fotos, fotoIndex, setFotoIndex }) {
           userSelect: "none", WebkitUserSelect: "none"
         }} />
       {fotos.length > 1 ? (
-        <div style={{ position: "absolute", top: 10, right: 12, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
+        <div style={{ position: "absolute", top: 10, right: 12, background: tellerBg, color: tellerKleur, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
           {fotoIndex + 1}/{fotos.length}
         </div>
       ) : null}
       {zoom > 1 ? (
         <div style={{ position: "absolute", top: 10, left: 12, display: "flex", gap: 6 }}>
-          <div style={{ background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
+          <div style={{ background: tellerBg, color: tellerKleur, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
             {Math.round(zoom * 100)}%
           </div>
           <button onClick={resetZoom} style={{ background: PINK, color: "#fff", border: "none", borderRadius: 10, padding: "2px 8px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>reset</button>
@@ -213,7 +221,7 @@ function TablatureViewer({ fotos, fotoIndex, setFotoIndex }) {
         <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 5 }}>
           {fotos.map(function(_, i) {
             return <div key={i} onClick={function() { setFotoIndex(i); resetZoom(); }}
-              style={{ width: i === fotoIndex ? 18 : 6, height: 6, borderRadius: 3, background: i === fotoIndex ? PINK : "rgba(255,255,255,0.35)", cursor: "pointer", transition: "all .2s" }} />;
+              style={{ width: i === fotoIndex ? 18 : 6, height: 6, borderRadius: 3, background: i === fotoIndex ? PINK : (witteAchtergrond ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.35)"), cursor: "pointer", transition: "all .2s" }} />;
           })}
         </div>
       ) : null}
@@ -221,61 +229,99 @@ function TablatureViewer({ fotos, fotoIndex, setFotoIndex }) {
   );
 }
 
-function DetailScherm({ oefening, onClose, onEdit, onSessieAdd }) {
+function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onInfoUpdate }) {
   const mod = MODULES.find(function(m) { return m.id === oefening.moduleId; });
   const [showSessie, setShowSessie] = useState(false);
+  const [sessiesUitgeklapt, setSessiesUitgeklapt] = useState(false);
   const [fotoIndex, setFotoIndex] = useState(0);
   const [tempo, setTempo] = useState(oefening.bpm);
+  const [info, setInfo] = useState(oefening.info || "");
+  const [infoOpslaan, setInfoOpslaan] = useState(false);
   const landscape = useOrientation();
   const maxBpm = (oefening.sessies || []).reduce(function(m, s) { return Math.max(m, s.bpm); }, 0);
   const fotos = oefening.fotos || [];
+  const aantalSessies = (oefening.sessies || []).length;
+
+  async function handleInfoOpslaan() {
+    setInfoOpslaan(true);
+    await onInfoUpdate(oefening.id, info);
+    setInfoOpslaan(false);
+  }
 
   if (landscape) {
-    // LANDSCAPE MODE -- volledig speelveld
     return (
-      <div style={{ position: "fixed", inset: 0, background: "#0a0a0a", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
+      <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
 
-        {/* Tablature -- neemt alle ruimte */}
-        <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} />
+        {/* Tablature -- wit, neemt alle ruimte */}
+        <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} witteAchtergrond={true} />
 
-        {/* Knoppen balk onderaan -- zoals noten app */}
-        <div style={{ background: "#1a1a1a", borderTop: "1px solid #333", padding: "8px 16px", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        {/* Knoppenbalk -- lichtgrijs zoals noten app */}
+        <div style={{ background: "#f2f2f2", borderTop: "1px solid #ddd", padding: "6px 12px", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
 
-          {/* Terug */}
-          <button onClick={onClose}
-            style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 20, padding: "6px 12px", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
-            ← terug
-          </button>
-
-          <div style={{ flex: 1 }} />
-
-          {/* Play knop */}
-          <button style={{ width: 40, height: 40, background: PINK, border: "none", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
-            <span style={{ color: "#fff", fontSize: 16, marginLeft: 2 }}>▶</span>
-          </button>
-
-          <div style={{ flex: 1 }} />
-
-          {/* Tempo bediening */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: "4px 10px" }}>
-            <button onClick={function() { setTempo(function(t) { return Math.max(40, t - 1); }); }}
-              style={{ background: "none", border: "none", color: "#fff", fontSize: 18, cursor: "pointer", padding: "0 4px", lineHeight: 1 }}>−</button>
-            <div style={{ textAlign: "center", minWidth: 44 }}>
-              <div style={{ color: PINK, fontWeight: 800, fontSize: 16 }}>{tempo}</div>
-              <div style={{ color: "#666", fontSize: 8, fontWeight: 700 }}>BPM</div>
-            </div>
-            <button onClick={function() { setTempo(function(t) { return Math.min(240, t + 1); }); }}
-              style={{ background: "none", border: "none", color: "#fff", fontSize: 18, cursor: "pointer", padding: "0 4px", lineHeight: 1 }}>+</button>
+          {/* Help */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", minWidth: 36 }}>
+            <span style={{ fontSize: 18 }}>?</span>
+            <span style={{ fontSize: 8, color: "#666", fontWeight: 600 }}>Help</span>
           </div>
 
-          {/* Loop */}
-          <button style={{ background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 20, padding: "6px 12px", color: "#aaa", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
-            ↩ Loop
+          <div style={{ width: 1, height: 32, background: "#ddd", marginLeft: 2, marginRight: 2 }} />
+
+          {/* Audio tracks */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", minWidth: 52 }}>
+            <span style={{ fontSize: 16 }}>🎵</span>
+            <span style={{ fontSize: 8, color: "#666", fontWeight: 600 }}>Audio</span>
+          </div>
+
+          <div style={{ flex: 1 }} />
+
+          {/* Terug naar begin */}
+          <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#555", padding: "0 6px" }}>◀</button>
+
+          {/* Play */}
+          <button style={{ width: 44, height: 44, background: PINK, border: "none", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+            <span style={{ color: "#fff", fontSize: 18, marginLeft: 3 }}>▶</span>
           </button>
 
-          {/* Bewerk */}
+          {/* Record */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", minWidth: 44 }}>
+            <span style={{ fontSize: 18 }}>🎙</span>
+            <span style={{ fontSize: 8, color: "#666", fontWeight: 600 }}>Record</span>
+          </div>
+
+          <div style={{ flex: 1 }} />
+
+          {/* Tempo */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, minWidth: 36 }}>
+            <span style={{ fontSize: 16 }}>🎚</span>
+            <span style={{ fontSize: 8, color: "#666", fontWeight: 600 }}>Tempo</span>
+          </div>
+
+          {/* BPM bediening */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button onClick={function() { setTempo(function(t) { return Math.max(40, t - 1); }); }}
+              style={{ background: "none", border: "none", color: "#333", fontSize: 20, cursor: "pointer", padding: "0 4px", lineHeight: 1, fontWeight: 300 }}>−</button>
+            <div style={{ textAlign: "center", minWidth: 42 }}>
+              <span style={{ color: PINK, fontWeight: 800, fontSize: 17 }}>{tempo}</span>
+            </div>
+            <button onClick={function() { setTempo(function(t) { return Math.min(240, t + 1); }); }}
+              style={{ background: "none", border: "none", color: "#333", fontSize: 20, cursor: "pointer", padding: "0 4px", lineHeight: 1, fontWeight: 300 }}>+</button>
+          </div>
+
+          <div style={{ width: 1, height: 32, background: "#ddd", marginLeft: 2, marginRight: 2 }} />
+
+          {/* Loop */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", minWidth: 36 }}>
+            <span style={{ fontSize: 18 }}>↩</span>
+            <span style={{ fontSize: 8, color: "#666", fontWeight: 600 }}>Loop</span>
+          </div>
+
+          <div style={{ width: 1, height: 32, background: "#ddd", marginLeft: 2, marginRight: 2 }} />
+
+          {/* Terug + bewerk */}
+          <button onClick={onClose}
+            style={{ background: "none", border: "none", color: "#555", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: "0 4px" }}>✕</button>
           <button onClick={function() { onEdit(oefening); onClose(); }}
-            style={{ background: PINK, border: "none", borderRadius: 20, padding: "6px 12px", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+            style={{ background: PINK, border: "none", borderRadius: 16, padding: "5px 12px", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
             bewerk
           </button>
         </div>
@@ -287,11 +333,10 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd }) {
     );
   }
 
-  // PORTRAIT MODE
+  // PORTRAIT
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0a0a0a", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
 
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", gap: 10, background: "#0a0a0a", flexShrink: 0 }}>
         <button onClick={onClose} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>← terug</button>
         <div style={{ flex: 1, fontWeight: 800, fontSize: 14, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oefening.titel}</div>
@@ -301,12 +346,10 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd }) {
         </button>
       </div>
 
-      {/* Tablature bovenaan -- 16:7 */}
-      <div style={{ width: "100%", aspectRatio: "16/7", flexShrink: 0, borderBottom: "1px solid #222" }}>
-        <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} />
+      <div style={{ width: "100%", aspectRatio: "16/7", flexShrink: 0, borderBottom: "1px solid #222", display: "flex" }}>
+        <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} witteAchtergrond={false} />
       </div>
 
-      {/* Info onderaan -- scrollbaar */}
       <div style={{ flex: 1, overflowY: "auto", background: BG }}>
         <div style={{ padding: "12px 14px 0" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
@@ -314,7 +357,7 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd }) {
             <span style={{ fontSize: 11, color: "#999" }}>{mod ? mod.name : ""}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-            {[["Doel BPM", oefening.bpm, PINK], ["Max BPM", maxBpm || "-", "#00B84C"], ["Sessies", (oefening.sessies || []).length, "#FF8C00"]].map(function(item) {
+            {[["Doel BPM", oefening.bpm, PINK], ["Max BPM", maxBpm || "-", "#00B84C"], ["Sessies", aantalSessies, "#FF8C00"]].map(function(item) {
               return (
                 <div key={item[0]} style={{ background: "#fff", borderRadius: 10, padding: "10px 6px", textAlign: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
                   <div style={{ fontWeight: 800, fontSize: 20, color: item[2] }}>{item[1]}</div>
@@ -325,33 +368,61 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd }) {
           </div>
           <BpmGrafiek sessies={oefening.sessies} />
         </div>
-        <div style={{ padding: "12px 14px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontWeight: 800, fontSize: 13, color: DARK }}>Sessies</div>
-            <button onClick={function() { setShowSessie(true); }}
-              style={{ background: PINK, color: "#fff", border: "none", borderRadius: 10, padding: "6px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-              + Sessie
-            </button>
+
+        {/* Sessies inklapbaar */}
+        <div style={{ padding: "12px 14px 0" }}>
+          <div onClick={function() { setSessiesUitgeklapt(function(v) { return !v; }); }}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", borderRadius: sessiesUitgeklapt ? "12px 12px 0 0" : 12, padding: "12px 14px", cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+            <div style={{ fontWeight: 800, fontSize: 13, color: DARK }}>
+              Sessies
+              {aantalSessies > 0 ? <span style={{ marginLeft: 8, background: PINK_LIGHT, color: PINK, fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 10 }}>{aantalSessies}</span> : null}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={function(e) { e.stopPropagation(); setShowSessie(true); }}
+                style={{ background: PINK, color: "#fff", border: "none", borderRadius: 10, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                + Sessie
+              </button>
+              <span style={{ color: "#bbb", fontSize: 14 }}>{sessiesUitgeklapt ? "▲" : "▼"}</span>
+            </div>
           </div>
-          {(oefening.sessies || []).length === 0 ? (
-            <div style={{ textAlign: "center", padding: 20, background: "#fff", borderRadius: 12, color: "#bbb", fontSize: 12 }}>
-              Nog geen sessies.
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {oefening.sessies.slice().reverse().map(function(s) {
-                return (
-                  <div key={s.id} style={{ background: "#fff", borderRadius: 11, padding: 11, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: 11, color: "#999" }}>{new Date(s.datum).toLocaleDateString("nl-NL")}</span>
-                      <span style={{ fontWeight: 700, color: PINK, fontSize: 13 }}>{s.bpm} BPM</span>
+          {sessiesUitgeklapt ? (
+            <div style={{ background: "#fff", borderRadius: "0 0 12px 12px", boxShadow: "0 2px 6px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+              {aantalSessies === 0 ? (
+                <div style={{ textAlign: "center", padding: 20, color: "#bbb", fontSize: 12 }}>Nog geen sessies.</div>
+              ) : (
+                oefening.sessies.slice().reverse().map(function(s, i) {
+                  return (
+                    <div key={s.id} style={{ padding: "10px 14px", borderTop: "1px solid #f5f5f5" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: "#999" }}>{new Date(s.datum).toLocaleDateString("nl-NL")}</span>
+                        <span style={{ fontWeight: 700, color: PINK, fontSize: 13 }}>{s.bpm} BPM</span>
+                      </div>
+                      {s.notitie ? <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>{s.notitie}</div> : null}
                     </div>
-                    {s.notitie ? <div style={{ fontSize: 11, color: "#666", marginTop: 5 }}>{s.notitie}</div> : null}
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
-          )}
+          ) : null}
+        </div>
+
+        {/* Info blok */}
+        <div style={{ padding: "12px 14px 24px" }}>
+          <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+            <div style={{ padding: "12px 14px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 800, fontSize: 13, color: DARK }}>Info</div>
+              {info !== (oefening.info || "") ? (
+                <button onClick={handleInfoOpslaan}
+                  style={{ background: PINK, color: "#fff", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  {infoOpslaan ? "..." : "Opslaan"}
+                </button>
+              ) : null}
+            </div>
+            <textarea value={info} onChange={function(e) { setInfo(e.target.value); }}
+              placeholder="Voeg notities toe over deze oefening..."
+              rows={6}
+              style={{ width: "100%", padding: "0 14px 14px", border: "none", outline: "none", fontSize: 13, color: DARK, resize: "none", boxSizing: "border-box", background: "transparent", lineHeight: 1.6 }} />
+          </div>
         </div>
       </div>
 
@@ -439,6 +510,7 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
     const data = {
       titel: titel, moduleId: moduleId, bpm: bpm, fotos: fotos,
       sessies: oefening ? (oefening.sessies || []) : [],
+      info: oefening ? (oefening.info || "") : "",
       datum: oefening ? oefening.datum : new Date().toISOString(),
       bijgewerkt: new Date().toISOString()
     };
@@ -603,6 +675,14 @@ export default function App() {
     });
   }
 
+  async function handleInfoUpdate(oefeningId, info) {
+    await updateDoc(doc(db, "oefeningen", oefeningId), { info: info });
+    setOpenOefening(function(prev) {
+      if (!prev || prev.id !== oefeningId) return prev;
+      return Object.assign({}, prev, { info: info });
+    });
+  }
+
   async function handleFotoToevoegen(oefeningId, url) {
     const ex = oefeningen.find(function(e) { return e.id === oefeningId; });
     if (!ex) return;
@@ -642,7 +722,7 @@ export default function App() {
           <div>
             <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
             <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.16</span>
+            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.18</span>
           </div>
           <div style={{ fontSize: 9, color: "#bbb", fontWeight: 700 }}>{today}</div>
         </div>
@@ -765,7 +845,7 @@ export default function App() {
 
       {showNieuw ? <OefeningFormulier onSave={handleSave} onClose={function() { setShowNieuw(false); }} /> : null}
       {bewerkOefening ? <OefeningFormulier oefening={bewerkOefening} onSave={handleSave} onClose={function() { setBewerkOefening(null); }} /> : null}
-      {openOefening ? <DetailScherm oefening={openOefening} onClose={function() { setOpenOefening(null); }} onEdit={setBewerkOefening} onSessieAdd={handleSessieAdd} onFotoToevoegen={handleFotoToevoegen} /> : null}
+      {openOefening ? <DetailScherm oefening={openOefening} onClose={function() { setOpenOefening(null); }} onEdit={setBewerkOefening} onSessieAdd={handleSessieAdd} onInfoUpdate={handleInfoUpdate} /> : null}
       {openModule ? <ModuleScherm module={openModule} oefeningen={oefeningen.filter(function(e) { return e.moduleId === openModule.id; })} onClose={function() { setOpenModule(null); }} onOpen={setOpenOefening} onEdit={setBewerkOefening} onDelete={handleDelete} /> : null}
     </div>
   );
