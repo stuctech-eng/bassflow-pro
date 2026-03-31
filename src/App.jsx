@@ -21,11 +21,18 @@ function useOrientation() {
     function check() {
       setTimeout(function() {
         setLandscape(window.innerWidth > window.innerHeight);
-      }, 100);
+      }, 150);
     }
+    const interval = setInterval(function() {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      setLandscape(function(prev) { return prev !== isLandscape ? isLandscape : prev; });
+    }, 300);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", check);
     window.addEventListener("resize", check);
     window.addEventListener("orientationchange", check);
     return function() {
+      clearInterval(interval);
+      if (window.visualViewport) window.visualViewport.removeEventListener("resize", check);
       window.removeEventListener("resize", check);
       window.removeEventListener("orientationchange", check);
     };
@@ -76,6 +83,91 @@ function BpmGrafiek({ sessies }) {
   );
 }
 
+function SessieRij({ sessie, onVerwijder, onBewerk }) {
+  const [swipeX, setSwipeX] = useState(0);
+  const [bewerken, setBewerken] = useState(false);
+  const [bpm, setBpm] = useState(sessie.bpm);
+  const [notitie, setNotitie] = useState(sessie.notitie || "");
+  const touchStartX = useRef(null);
+  const DREMPEL = 70;
+
+  function handleTouchStart(e) { touchStartX.current = e.touches[0].clientX; }
+  function handleTouchMove(e) {
+    if (touchStartX.current === null) return;
+    const diff = touchStartX.current - e.touches[0].clientX;
+    if (diff > 0) setSwipeX(Math.min(diff, DREMPEL));
+  }
+  function handleTouchEnd() {
+    if (swipeX > DREMPEL * 0.6) { setSwipeX(DREMPEL); }
+    else { setSwipeX(0); }
+    touchStartX.current = null;
+  }
+
+  function handleSlaOp() {
+    onBewerk(sessie.id, { bpm: bpm, notitie: notitie });
+    setBewerken(false);
+    setSwipeX(0);
+  }
+
+  if (bewerken) {
+    return (
+      <div style={{ background: "#fff", borderRadius: 11, padding: 12, boxShadow: "0 1px 4px rgba(0,0,0,0.05)", marginBottom: 7 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <span style={{ fontSize: 11, color: "#999" }}>{new Date(sessie.datum).toLocaleDateString("nl-NL")}</span>
+          <button onClick={function() { setBewerken(false); setSwipeX(0); }}
+            style={{ background: "#f0f0f0", border: "none", borderRadius: 8, padding: "3px 8px", fontSize: 11, cursor: "pointer" }}>✕</button>
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+            <label style={{ fontSize: 10, fontWeight: 700, color: "#888" }}>TEMPO</label>
+            <span style={{ fontSize: 11, fontWeight: 800, color: PINK }}>{bpm} BPM</span>
+          </div>
+          <input type="range" min={40} max={240} value={bpm}
+            onChange={function(e) { setBpm(Number(e.target.value)); }}
+            style={{ width: "100%", accentColor: PINK }} />
+        </div>
+        <textarea value={notitie} onChange={function(e) { setNotitie(e.target.value); }}
+          placeholder="Notitie..." rows={2}
+          style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #eee", fontSize: 12, outline: "none", resize: "none", boxSizing: "border-box", marginBottom: 8 }} />
+        <button onClick={handleSlaOp}
+          style={{ width: "100%", background: PINK, color: "#fff", border: "none", borderRadius: 10, padding: "9px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+          Opslaan
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: "relative", overflow: "hidden", borderRadius: 11, marginBottom: 7 }}>
+      {/* Achtergrond knoppen */}
+      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, display: "flex", alignItems: "center", gap: 0 }}>
+        <button onClick={function() { setBewerken(true); }}
+          style={{ background: "#FF8C00", border: "none", width: 56, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: 2 }}>
+          <span style={{ fontSize: 16 }}>✏️</span>
+          <span style={{ fontSize: 8, color: "#fff", fontWeight: 700 }}>bewerk</span>
+        </button>
+        <button onClick={function() { onVerwijder(sessie.id); }}
+          style={{ background: "#E53935", border: "none", width: 56, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: 2, borderRadius: "0 11px 11px 0" }}>
+          <span style={{ fontSize: 16 }}>🗑️</span>
+          <span style={{ fontSize: 8, color: "#fff", fontWeight: 700 }}>wis</span>
+        </button>
+      </div>
+      {/* Sessie rij */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ background: "#fff", borderRadius: 11, padding: "10px 14px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", transform: "translateX(-" + swipeX + "px)", transition: touchStartX.current ? "none" : "transform 0.2s", position: "relative", zIndex: 1 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 11, color: "#999" }}>{new Date(sessie.datum).toLocaleDateString("nl-NL")}</span>
+          <span style={{ fontWeight: 700, color: PINK, fontSize: 13 }}>{sessie.bpm} BPM</span>
+        </div>
+        {sessie.notitie ? <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>{sessie.notitie}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 function SessieFormulier({ oefening, onSave, onClose }) {
   const [bpm, setBpm] = useState(oefening.bpm);
   const [notitie, setNotitie] = useState("");
@@ -121,7 +213,7 @@ function SessieFormulier({ oefening, onSave, onClose }) {
   );
 }
 
-function TablatureViewer({ fotos, fotoIndex, setFotoIndex, witteAchtergrond }) {
+function TablatureViewer({ fotos, fotoIndex, setFotoIndex }) {
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const touchStart = useRef(null);
@@ -176,16 +268,12 @@ function TablatureViewer({ fotos, fotoIndex, setFotoIndex, witteAchtergrond }) {
     }
   }
 
-  const bg = witteAchtergrond ? "#fff" : "#111";
-  const tellerBg = witteAchtergrond ? "rgba(0,0,0,0.12)" : "rgba(0,0,0,0.6)";
-  const tellerKleur = witteAchtergrond ? "#333" : "#fff";
-
   if (fotos.length === 0) {
     return (
-      <div style={{ flex: 1, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", color: witteAchtergrond ? "#ccc" : "#444" }}>
+      <div style={{ flex: 1, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", color: "#ccc" }}>
         <div style={{ fontSize: 36, marginBottom: 8 }}>🎸</div>
-        <div style={{ fontSize: 13 }}>Geen tablature</div>
-        <div style={{ fontSize: 10, marginTop: 4, color: witteAchtergrond ? "#ddd" : "#333" }}>Voeg toe via bewerken</div>
+        <div style={{ fontSize: 13, color: "#bbb" }}>Geen tablature</div>
+        <div style={{ fontSize: 10, marginTop: 4, color: "#ddd" }}>Voeg toe via bewerken</div>
       </div>
     );
   }
@@ -195,7 +283,7 @@ function TablatureViewer({ fotos, fotoIndex, setFotoIndex, witteAchtergrond }) {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      style={{ flex: 1, background: bg, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", touchAction: "none", position: "relative" }}>
+      style={{ flex: 1, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", touchAction: "none", position: "relative" }}>
       <img src={fotos[fotoIndex]} alt="tablature"
         style={{
           width: "100%", height: "100%", objectFit: "contain",
@@ -205,13 +293,13 @@ function TablatureViewer({ fotos, fotoIndex, setFotoIndex, witteAchtergrond }) {
           userSelect: "none", WebkitUserSelect: "none"
         }} />
       {fotos.length > 1 ? (
-        <div style={{ position: "absolute", top: 10, right: 12, background: tellerBg, color: tellerKleur, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
+        <div style={{ position: "absolute", top: 10, right: 12, background: "rgba(0,0,0,0.12)", color: "#333", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
           {fotoIndex + 1}/{fotos.length}
         </div>
       ) : null}
       {zoom > 1 ? (
         <div style={{ position: "absolute", top: 10, left: 12, display: "flex", gap: 6 }}>
-          <div style={{ background: tellerBg, color: tellerKleur, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
+          <div style={{ background: "rgba(0,0,0,0.12)", color: "#333", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
             {Math.round(zoom * 100)}%
           </div>
           <button onClick={resetZoom} style={{ background: PINK, color: "#fff", border: "none", borderRadius: 10, padding: "2px 8px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>reset</button>
@@ -221,7 +309,7 @@ function TablatureViewer({ fotos, fotoIndex, setFotoIndex, witteAchtergrond }) {
         <div style={{ position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 5 }}>
           {fotos.map(function(_, i) {
             return <div key={i} onClick={function() { setFotoIndex(i); resetZoom(); }}
-              style={{ width: i === fotoIndex ? 18 : 6, height: 6, borderRadius: 3, background: i === fotoIndex ? PINK : (witteAchtergrond ? "rgba(0,0,0,0.2)" : "rgba(255,255,255,0.35)"), cursor: "pointer", transition: "all .2s" }} />;
+              style={{ width: i === fotoIndex ? 18 : 6, height: 6, borderRadius: 3, background: i === fotoIndex ? PINK : "rgba(0,0,0,0.2)", cursor: "pointer", transition: "all .2s" }} />;
           })}
         </div>
       ) : null}
@@ -229,7 +317,7 @@ function TablatureViewer({ fotos, fotoIndex, setFotoIndex, witteAchtergrond }) {
   );
 }
 
-function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onInfoUpdate }) {
+function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onSessieUpdate, onSessieVerwijder, onInfoUpdate }) {
   const mod = MODULES.find(function(m) { return m.id === oefening.moduleId; });
   const [showSessie, setShowSessie] = useState(false);
   const [sessiesUitgeklapt, setSessiesUitgeklapt] = useState(false);
@@ -251,81 +339,52 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onInfoUpdate }) 
   if (landscape) {
     return (
       <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
-
-        {/* Tablature -- wit, neemt alle ruimte */}
-        <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} witteAchtergrond={true} />
-
-        {/* Knoppenbalk -- lichtgrijs zoals noten app */}
+        <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} />
         <div style={{ background: "#f2f2f2", borderTop: "1px solid #ddd", padding: "6px 12px", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-
-          {/* Help */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", minWidth: 36 }}>
-            <span style={{ fontSize: 18 }}>?</span>
+            <span style={{ fontSize: 18 }}>❓</span>
             <span style={{ fontSize: 8, color: "#666", fontWeight: 600 }}>Help</span>
           </div>
-
-          <div style={{ width: 1, height: 32, background: "#ddd", marginLeft: 2, marginRight: 2 }} />
-
-          {/* Audio tracks */}
+          <div style={{ width: 1, height: 32, background: "#ddd" }} />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", minWidth: 52 }}>
             <span style={{ fontSize: 16 }}>🎵</span>
             <span style={{ fontSize: 8, color: "#666", fontWeight: 600 }}>Audio</span>
           </div>
-
           <div style={{ flex: 1 }} />
-
-          {/* Terug naar begin */}
           <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#555", padding: "0 6px" }}>◀</button>
-
-          {/* Play */}
-          <button style={{ width: 44, height: 44, background: PINK, border: "none", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+          <button style={{ width: 44, height: 44, background: PINK, border: "none", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
             <span style={{ color: "#fff", fontSize: 18, marginLeft: 3 }}>▶</span>
           </button>
-
-          {/* Record */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", minWidth: 44 }}>
             <span style={{ fontSize: 18 }}>🎙</span>
             <span style={{ fontSize: 8, color: "#666", fontWeight: 600 }}>Record</span>
           </div>
-
           <div style={{ flex: 1 }} />
-
-          {/* Tempo */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, minWidth: 36 }}>
             <span style={{ fontSize: 16 }}>🎚</span>
             <span style={{ fontSize: 8, color: "#666", fontWeight: 600 }}>Tempo</span>
           </div>
-
-          {/* BPM bediening */}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button onClick={function() { setTempo(function(t) { return Math.max(40, t - 1); }); }}
-              style={{ background: "none", border: "none", color: "#333", fontSize: 20, cursor: "pointer", padding: "0 4px", lineHeight: 1, fontWeight: 300 }}>−</button>
+              style={{ background: "none", border: "none", color: "#333", fontSize: 20, cursor: "pointer", padding: "0 4px" }}>−</button>
             <div style={{ textAlign: "center", minWidth: 42 }}>
               <span style={{ color: PINK, fontWeight: 800, fontSize: 17 }}>{tempo}</span>
             </div>
             <button onClick={function() { setTempo(function(t) { return Math.min(240, t + 1); }); }}
-              style={{ background: "none", border: "none", color: "#333", fontSize: 20, cursor: "pointer", padding: "0 4px", lineHeight: 1, fontWeight: 300 }}>+</button>
+              style={{ background: "none", border: "none", color: "#333", fontSize: 20, cursor: "pointer", padding: "0 4px" }}>+</button>
           </div>
-
-          <div style={{ width: 1, height: 32, background: "#ddd", marginLeft: 2, marginRight: 2 }} />
-
-          {/* Loop */}
+          <div style={{ width: 1, height: 32, background: "#ddd" }} />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", minWidth: 36 }}>
             <span style={{ fontSize: 18 }}>↩</span>
             <span style={{ fontSize: 8, color: "#666", fontWeight: 600 }}>Loop</span>
           </div>
-
-          <div style={{ width: 1, height: 32, background: "#ddd", marginLeft: 2, marginRight: 2 }} />
-
-          {/* Terug + bewerk */}
-          <button onClick={onClose}
-            style={{ background: "none", border: "none", color: "#555", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: "0 4px" }}>✕</button>
+          <div style={{ width: 1, height: 32, background: "#ddd" }} />
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#555", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: "0 4px" }}>✕</button>
           <button onClick={function() { onEdit(oefening); onClose(); }}
             style={{ background: PINK, border: "none", borderRadius: 16, padding: "5px 12px", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
             bewerk
           </button>
         </div>
-
         {showSessie ? (
           <SessieFormulier oefening={oefening} onSave={function(sessie) { onSessieAdd(oefening.id, sessie); }} onClose={function() { setShowSessie(false); }} />
         ) : null}
@@ -333,21 +392,19 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onInfoUpdate }) 
     );
   }
 
-  // PORTRAIT
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#0a0a0a", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
-
-      <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", gap: 10, background: "#0a0a0a", flexShrink: 0 }}>
-        <button onClick={onClose} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 20, padding: "5px 12px", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>← terug</button>
-        <div style={{ flex: 1, fontWeight: 800, fontSize: 14, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oefening.titel}</div>
+    <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
+      <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", gap: 10, background: "#fff", borderBottom: "1px solid #eee", flexShrink: 0 }}>
+        <button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: 20, padding: "5px 12px", color: DARK, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>← terug</button>
+        <div style={{ flex: 1, fontWeight: 800, fontSize: 14, color: DARK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oefening.titel}</div>
         <button onClick={function() { onEdit(oefening); onClose(); }}
           style={{ background: PINK, color: "#fff", border: "none", borderRadius: 20, padding: "5px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
           bewerk
         </button>
       </div>
 
-      <div style={{ width: "100%", aspectRatio: "16/7", flexShrink: 0, borderBottom: "1px solid #222", display: "flex" }}>
-        <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} witteAchtergrond={false} />
+      <div style={{ width: "100%", aspectRatio: "16/7", flexShrink: 0, borderBottom: "1px solid #eee", display: "flex" }}>
+        <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} />
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", background: BG }}>
@@ -369,7 +426,6 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onInfoUpdate }) 
           <BpmGrafiek sessies={oefening.sessies} />
         </div>
 
-        {/* Sessies inklapbaar */}
         <div style={{ padding: "12px 14px 0" }}>
           <div onClick={function() { setSessiesUitgeklapt(function(v) { return !v; }); }}
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", borderRadius: sessiesUitgeklapt ? "12px 12px 0 0" : 12, padding: "12px 14px", cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
@@ -386,19 +442,15 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onInfoUpdate }) 
             </div>
           </div>
           {sessiesUitgeklapt ? (
-            <div style={{ background: "#fff", borderRadius: "0 0 12px 12px", boxShadow: "0 2px 6px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+            <div style={{ background: BG, borderRadius: "0 0 12px 12px", padding: "8px 0 4px", boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
               {aantalSessies === 0 ? (
                 <div style={{ textAlign: "center", padding: 20, color: "#bbb", fontSize: 12 }}>Nog geen sessies.</div>
               ) : (
-                oefening.sessies.slice().reverse().map(function(s, i) {
+                oefening.sessies.slice().reverse().map(function(s) {
                   return (
-                    <div key={s.id} style={{ padding: "10px 14px", borderTop: "1px solid #f5f5f5" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 11, color: "#999" }}>{new Date(s.datum).toLocaleDateString("nl-NL")}</span>
-                        <span style={{ fontWeight: 700, color: PINK, fontSize: 13 }}>{s.bpm} BPM</span>
-                      </div>
-                      {s.notitie ? <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>{s.notitie}</div> : null}
-                    </div>
+                    <SessieRij key={s.id} sessie={s}
+                      onVerwijder={function(id) { onSessieVerwijder(oefening.id, id); }}
+                      onBewerk={function(id, data) { onSessieUpdate(oefening.id, id, data); }} />
                   );
                 })
               )}
@@ -406,7 +458,6 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onInfoUpdate }) 
           ) : null}
         </div>
 
-        {/* Info blok */}
         <div style={{ padding: "12px 14px 24px" }}>
           <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
             <div style={{ padding: "12px 14px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -546,7 +597,6 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
           </div>
           <input type="range" min={40} max={240} value={bpm} onChange={function(e) { setBpm(Number(e.target.value)); }} style={{ width: "100%", accentColor: PINK }} />
         </div>
-
         {!isNieuw ? (
           <div style={{ marginBottom: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -583,7 +633,6 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
             )}
           </div>
         ) : null}
-
         <button onClick={handleSave} disabled={opslaan}
           style={{ width: "100%", background: opslaan ? "#ccc" : PINK, color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: opslaan ? "default" : "pointer" }}>
           {opslaan ? "Opslaan..." : (isNieuw ? "Opslaan" : "Wijzigingen opslaan")}
@@ -675,6 +724,30 @@ export default function App() {
     });
   }
 
+  async function handleSessieUpdate(oefeningId, sessieId, data) {
+    const ex = oefeningen.find(function(e) { return e.id === oefeningId; });
+    if (!ex) return;
+    const nieuweSessies = (ex.sessies || []).map(function(s) {
+      return s.id === sessieId ? Object.assign({}, s, data) : s;
+    });
+    await updateDoc(doc(db, "oefeningen", oefeningId), { sessies: nieuweSessies });
+    setOpenOefening(function(prev) {
+      if (!prev || prev.id !== oefeningId) return prev;
+      return Object.assign({}, prev, { sessies: nieuweSessies });
+    });
+  }
+
+  async function handleSessieVerwijder(oefeningId, sessieId) {
+    const ex = oefeningen.find(function(e) { return e.id === oefeningId; });
+    if (!ex) return;
+    const nieuweSessies = (ex.sessies || []).filter(function(s) { return s.id !== sessieId; });
+    await updateDoc(doc(db, "oefeningen", oefeningId), { sessies: nieuweSessies });
+    setOpenOefening(function(prev) {
+      if (!prev || prev.id !== oefeningId) return prev;
+      return Object.assign({}, prev, { sessies: nieuweSessies });
+    });
+  }
+
   async function handleInfoUpdate(oefeningId, info) {
     await updateDoc(doc(db, "oefeningen", oefeningId), { info: info });
     setOpenOefening(function(prev) {
@@ -722,7 +795,7 @@ export default function App() {
           <div>
             <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
             <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.18</span>
+            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.20</span>
           </div>
           <div style={{ fontSize: 9, color: "#bbb", fontWeight: 700 }}>{today}</div>
         </div>
@@ -845,7 +918,7 @@ export default function App() {
 
       {showNieuw ? <OefeningFormulier onSave={handleSave} onClose={function() { setShowNieuw(false); }} /> : null}
       {bewerkOefening ? <OefeningFormulier oefening={bewerkOefening} onSave={handleSave} onClose={function() { setBewerkOefening(null); }} /> : null}
-      {openOefening ? <DetailScherm oefening={openOefening} onClose={function() { setOpenOefening(null); }} onEdit={setBewerkOefening} onSessieAdd={handleSessieAdd} onInfoUpdate={handleInfoUpdate} /> : null}
+      {openOefening ? <DetailScherm oefening={openOefening} onClose={function() { setOpenOefening(null); }} onEdit={setBewerkOefening} onSessieAdd={handleSessieAdd} onSessieUpdate={handleSessieUpdate} onSessieVerwijder={handleSessieVerwijder} onInfoUpdate={handleInfoUpdate} /> : null}
       {openModule ? <ModuleScherm module={openModule} oefeningen={oefeningen.filter(function(e) { return e.moduleId === openModule.id; })} onClose={function() { setOpenModule(null); }} onOpen={setOpenOefening} onEdit={setBewerkOefening} onDelete={handleDelete} /> : null}
     </div>
   );
