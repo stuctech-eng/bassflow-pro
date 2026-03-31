@@ -40,6 +40,37 @@ function useOrientation() {
   return landscape;
 }
 
+function verwerkFoto(file, drempel) {
+  return new Promise(function(resolve) {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = function() {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      for (var i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i+1], b = data[i+2];
+        const helderheid = (r + g + b) / 3;
+        if (helderheid < drempel) {
+          data[i] = 0; data[i+1] = 0; data[i+2] = 0;
+        } else {
+          data[i] = 255; data[i+1] = 255; data[i+2] = 255;
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+      canvas.toBlob(function(blob) {
+        URL.revokeObjectURL(url);
+        resolve(blob);
+      }, "image/jpeg", 0.92);
+    };
+    img.src = url;
+  });
+}
+
 function Badge({ level }) {
   const colors = {
     Beginner: [PINK_LIGHT, PINK],
@@ -89,7 +120,7 @@ function SessieRij({ sessie, onVerwijder, onBewerk }) {
   const [bpm, setBpm] = useState(sessie.bpm);
   const [notitie, setNotitie] = useState(sessie.notitie || "");
   const touchStartX = useRef(null);
-  const DREMPEL = 70;
+  const DREMPEL = 112;
 
   function handleTouchStart(e) { touchStartX.current = e.touches[0].clientX; }
   function handleTouchMove(e) {
@@ -98,7 +129,7 @@ function SessieRij({ sessie, onVerwijder, onBewerk }) {
     if (diff > 0) setSwipeX(Math.min(diff, DREMPEL));
   }
   function handleTouchEnd() {
-    if (swipeX > DREMPEL * 0.6) { setSwipeX(DREMPEL); }
+    if (swipeX > DREMPEL * 0.5) { setSwipeX(DREMPEL); }
     else { setSwipeX(0); }
     touchStartX.current = null;
   }
@@ -139,8 +170,7 @@ function SessieRij({ sessie, onVerwijder, onBewerk }) {
 
   return (
     <div style={{ position: "relative", overflow: "hidden", borderRadius: 11, marginBottom: 7 }}>
-      {/* Achtergrond knoppen */}
-      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, display: "flex", alignItems: "center", gap: 0 }}>
+      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, display: "flex" }}>
         <button onClick={function() { setBewerken(true); }}
           style={{ background: "#FF8C00", border: "none", width: 56, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", gap: 2 }}>
           <span style={{ fontSize: 16 }}>✏️</span>
@@ -152,7 +182,6 @@ function SessieRij({ sessie, onVerwijder, onBewerk }) {
           <span style={{ fontSize: 8, color: "#fff", fontWeight: 700 }}>wis</span>
         </button>
       </div>
-      {/* Sessie rij */}
       <div
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -329,6 +358,7 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onSessieUpdate, 
   const maxBpm = (oefening.sessies || []).reduce(function(m, s) { return Math.max(m, s.bpm); }, 0);
   const fotos = oefening.fotos || [];
   const aantalSessies = (oefening.sessies || []).length;
+  const audioUrl = oefening.audioUrl || null;
 
   async function handleInfoOpslaan() {
     setInfoOpslaan(true);
@@ -406,6 +436,14 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onSessieUpdate, 
       <div style={{ width: "100%", aspectRatio: "16/7", flexShrink: 0, borderBottom: "1px solid #eee", display: "flex" }}>
         <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} />
       </div>
+
+      {/* Audio speler */}
+      {audioUrl ? (
+        <div style={{ background: "#fff", borderBottom: "1px solid #eee", padding: "8px 14px", flexShrink: 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#999", marginBottom: 4 }}>AUDIO</div>
+          <audio controls src={audioUrl} style={{ width: "100%", height: 32, accentColor: PINK }} />
+        </div>
+      ) : null}
 
       <div style={{ flex: 1, overflowY: "auto", background: BG }}>
         <div style={{ padding: "12px 14px 0" }}>
@@ -513,7 +551,7 @@ function ModuleScherm({ module, oefeningen, onClose, onOpen, onEdit, onDelete })
   );
 }
 
-function OefeningFormulier({ oefening, onSave, onClose }) {
+function OefeningFormulier({ oefening, onSave, onClose, onAudioUpdate }) {
   const isNieuw = !oefening;
   const [titel, setTitel] = useState(oefening ? oefening.titel : "");
   const [moduleId, setModuleId] = useState(oefening ? oefening.moduleId : "mod1");
@@ -521,7 +559,12 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
   const [opslaan, setOpslaan] = useState(false);
   const [fotos, setFotos] = useState(oefening ? (oefening.fotos || []) : []);
   const [uploading, setUploading] = useState(false);
+  const [verwerkStatus, setVerwerkStatus] = useState({});
+  const [audioUploading, setAudioUploading] = useState(false);
+  const [audioUrl, setAudioUrl] = useState(oefening ? (oefening.audioUrl || "") : "");
+  const [drempel, setDrempel] = useState(160);
   const invoerRef = useRef();
+  const audioRef = useRef();
 
   async function handleFotoKies(e) {
     if (!oefening) return;
@@ -529,15 +572,37 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
     setUploading(true);
     const nieuweFotos = [...fotos];
     for (var i = 0; i < bestanden.length; i++) {
+      var bestand = bestanden[i];
       var pad = "fotos/" + oefening.id + "/" + Date.now() + "_" + i + ".jpg";
       var storageRef = ref(storage, pad);
-      await uploadBytes(storageRef, bestanden[i]);
+      await uploadBytes(storageRef, bestand);
       var url = await getDownloadURL(storageRef);
       nieuweFotos.push(url);
     }
     setFotos(nieuweFotos);
     await updateDoc(doc(db, "oefeningen", oefening.id), { fotos: nieuweFotos });
     setUploading(false);
+  }
+
+  async function handleVerwerk(index) {
+    if (!oefening) return;
+    setVerwerkStatus(function(prev) { return Object.assign({}, prev, { [index]: "bezig" }); });
+    try {
+      const response = await fetch(fotos[index]);
+      const blob = await response.blob();
+      const file = new File([blob], "foto.jpg", { type: "image/jpeg" });
+      const verwerktBlob = await verwerkFoto(file, drempel);
+      const pad = "fotos/" + oefening.id + "/clean_" + Date.now() + "_" + index + ".jpg";
+      const storageRef = ref(storage, pad);
+      await uploadBytes(storageRef, verwerktBlob);
+      const nieuweUrl = await getDownloadURL(storageRef);
+      const nieuweFotos = fotos.map(function(f, i) { return i === index ? nieuweUrl : f; });
+      setFotos(nieuweFotos);
+      await updateDoc(doc(db, "oefeningen", oefening.id), { fotos: nieuweFotos });
+      setVerwerkStatus(function(prev) { return Object.assign({}, prev, { [index]: "klaar" }); });
+    } catch (err) {
+      setVerwerkStatus(function(prev) { return Object.assign({}, prev, { [index]: "fout" }); });
+    }
   }
 
   function handleVerwijder(index) {
@@ -555,6 +620,20 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
     if (oefening) updateDoc(doc(db, "oefeningen", oefening.id), { fotos: nieuweFotos });
   }
 
+  async function handleAudioKies(e) {
+    if (!oefening) return;
+    const bestand = e.target.files[0];
+    if (!bestand) return;
+    setAudioUploading(true);
+    const pad = "audio/" + oefening.id + "/" + Date.now() + "_" + bestand.name;
+    const storageRef = ref(storage, pad);
+    await uploadBytes(storageRef, bestand);
+    const url = await getDownloadURL(storageRef);
+    setAudioUrl(url);
+    await updateDoc(doc(db, "oefeningen", oefening.id), { audioUrl: url });
+    setAudioUploading(false);
+  }
+
   async function handleSave() {
     if (!titel.trim()) return;
     setOpslaan(true);
@@ -562,6 +641,7 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
       titel: titel, moduleId: moduleId, bpm: bpm, fotos: fotos,
       sessies: oefening ? (oefening.sessies || []) : [],
       info: oefening ? (oefening.info || "") : "",
+      audioUrl: audioUrl,
       datum: oefening ? oefening.datum : new Date().toISOString(),
       bijgewerkt: new Date().toISOString()
     };
@@ -578,11 +658,15 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
           <div style={{ fontWeight: 800, fontSize: 17, color: DARK }}>{isNieuw ? "Nieuwe oefening" : "Bewerken"}</div>
           <button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: "50%", width: 30, height: 30, cursor: "pointer" }}>✕</button>
         </div>
+
+        {/* Titel */}
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>TITEL</label>
           <input value={titel} onChange={function(e) { setTitel(e.target.value); }} placeholder="Naam van de oefening"
             style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
         </div>
+
+        {/* Module */}
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>MODULE</label>
           <select value={moduleId} onChange={function(e) { setModuleId(e.target.value); }}
@@ -590,6 +674,8 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
             {MODULES.map(function(m) { return <option key={m.id} value={m.id}>{m.name}</option>; })}
           </select>
         </div>
+
+        {/* BPM */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
             <label style={{ fontSize: 11, fontWeight: 700, color: "#888" }}>TEMPO</label>
@@ -597,42 +683,95 @@ function OefeningFormulier({ oefening, onSave, onClose }) {
           </div>
           <input type="range" min={40} max={240} value={bpm} onChange={function(e) { setBpm(Number(e.target.value)); }} style={{ width: "100%", accentColor: PINK }} />
         </div>
+
         {!isNieuw ? (
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: "#888" }}>TABLATURE FOTO'S</label>
-              <button onClick={function() { invoerRef.current.click(); }}
-                style={{ background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                {uploading ? "Uploaden..." : "+ Foto"}
-              </button>
-              <input ref={invoerRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleFotoKies} />
-            </div>
-            {fotos.length === 0 ? (
-              <div style={{ textAlign: "center", padding: 20, background: "#fafafa", borderRadius: 10, border: "2px dashed #eee", color: "#bbb", fontSize: 12 }}>
-                Nog geen foto's
+          <>
+            {/* Tablature foto's */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#888" }}>TABLATURE FOTO'S</label>
+                <button onClick={function() { invoerRef.current.click(); }}
+                  style={{ background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  {uploading ? "Uploaden..." : "+ Foto"}
+                </button>
+                <input ref={invoerRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleFotoKies} />
               </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {fotos.map(function(foto, i) {
-                  return (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, background: "#fafafa", borderRadius: 10, padding: 8 }}>
-                      <img src={foto} alt={"foto " + (i + 1)} style={{ width: 56, height: 40, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />
-                      <div style={{ flex: 1, fontSize: 11, color: "#999" }}>Foto {i + 1}</div>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        <button onClick={function() { handleVerschuif(i, -1); }} disabled={i === 0}
-                          style={{ background: i === 0 ? "#eee" : "#f0f0f0", border: "none", borderRadius: 6, padding: "4px 7px", fontSize: 12, cursor: i === 0 ? "default" : "pointer", color: i === 0 ? "#ccc" : "#666" }}>↑</button>
-                        <button onClick={function() { handleVerschuif(i, 1); }} disabled={i === fotos.length - 1}
-                          style={{ background: i === fotos.length - 1 ? "#eee" : "#f0f0f0", border: "none", borderRadius: 6, padding: "4px 7px", fontSize: 12, cursor: i === fotos.length - 1 ? "default" : "pointer", color: i === fotos.length - 1 ? "#ccc" : "#666" }}>↓</button>
-                        <button onClick={function() { handleVerwijder(i); }}
-                          style={{ background: "#FFF0F0", color: "#E53935", border: "none", borderRadius: 6, padding: "4px 7px", fontSize: 12, cursor: "pointer" }}>✕</button>
+
+              {/* Drempel slider */}
+              {fotos.length > 0 ? (
+                <div style={{ marginBottom: 10, background: "#fafafa", borderRadius: 10, padding: "10px 12px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <label style={{ fontSize: 10, fontWeight: 700, color: "#888" }}>CONTRAST DREMPEL</label>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: PINK }}>{drempel}</span>
+                  </div>
+                  <input type="range" min={50} max={220} value={drempel}
+                    onChange={function(e) { setDrempel(Number(e.target.value)); }}
+                    style={{ width: "100%", accentColor: PINK }} />
+                  <div style={{ fontSize: 9, color: "#bbb", marginTop: 2 }}>Lager = meer zwart · Hoger = meer wit</div>
+                </div>
+              ) : null}
+
+              {fotos.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 20, background: "#fafafa", borderRadius: 10, border: "2px dashed #eee", color: "#bbb", fontSize: 12 }}>
+                  Nog geen foto's
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {fotos.map(function(foto, i) {
+                    const status = verwerkStatus[i];
+                    return (
+                      <div key={i} style={{ background: "#fafafa", borderRadius: 10, padding: 8 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <img src={foto} alt={"foto " + (i + 1)} style={{ width: 56, height: 40, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />
+                          <div style={{ flex: 1, fontSize: 11, color: "#999" }}>Foto {i + 1}</div>
+                          <div style={{ display: "flex", gap: 4 }}>
+                            <button onClick={function() { handleVerschuif(i, -1); }} disabled={i === 0}
+                              style={{ background: i === 0 ? "#eee" : "#f0f0f0", border: "none", borderRadius: 6, padding: "4px 7px", fontSize: 12, cursor: i === 0 ? "default" : "pointer", color: i === 0 ? "#ccc" : "#666" }}>↑</button>
+                            <button onClick={function() { handleVerschuif(i, 1); }} disabled={i === fotos.length - 1}
+                              style={{ background: i === fotos.length - 1 ? "#eee" : "#f0f0f0", border: "none", borderRadius: 6, padding: "4px 7px", fontSize: 12, cursor: i === fotos.length - 1 ? "default" : "pointer", color: i === fotos.length - 1 ? "#ccc" : "#666" }}>↓</button>
+                            <button onClick={function() { handleVerwijder(i); }}
+                              style={{ background: "#FFF0F0", color: "#E53935", border: "none", borderRadius: 6, padding: "4px 7px", fontSize: 12, cursor: "pointer" }}>✕</button>
+                          </div>
+                        </div>
+                        {/* Clean knop */}
+                        <button onClick={function() { handleVerwerk(i); }} disabled={status === "bezig"}
+                          style={{ marginTop: 6, width: "100%", background: status === "klaar" ? "#00B84C" : status === "bezig" ? "#eee" : PINK_LIGHT, color: status === "klaar" ? "#fff" : status === "bezig" ? "#bbb" : PINK, border: "none", borderRadius: 8, padding: "6px", fontSize: 11, fontWeight: 700, cursor: status === "bezig" ? "default" : "pointer" }}>
+                          {status === "bezig" ? "Bezig..." : status === "klaar" ? "✓ Clean gemaakt" : status === "fout" ? "Fout -- opnieuw?" : "🪄 Maak clean"}
+                        </button>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Audio */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#888" }}>AUDIO</label>
+                <button onClick={function() { audioRef.current.click(); }}
+                  style={{ background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  {audioUploading ? "Uploaden..." : audioUrl ? "Vervang" : "+ Audio"}
+                </button>
+                <input ref={audioRef} type="file" accept="audio/*" style={{ display: "none" }} onChange={handleAudioKies} />
               </div>
-            )}
-          </div>
+              {audioUrl ? (
+                <div style={{ background: "#fafafa", borderRadius: 10, padding: 10 }}>
+                  <audio controls src={audioUrl} style={{ width: "100%", height: 32 }} />
+                  <button onClick={function() { setAudioUrl(""); updateDoc(doc(db, "oefeningen", oefening.id), { audioUrl: "" }); }}
+                    style={{ marginTop: 6, background: "#FFF0F0", color: "#E53935", border: "none", borderRadius: 8, padding: "5px 10px", fontSize: 11, cursor: "pointer", width: "100%" }}>
+                    Audio verwijderen
+                  </button>
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: 16, background: "#fafafa", borderRadius: 10, border: "2px dashed #eee", color: "#bbb", fontSize: 12 }}>
+                  Geen audio gekoppeld
+                </div>
+              )}
+            </div>
+          </>
         ) : null}
+
         <button onClick={handleSave} disabled={opslaan}
           style={{ width: "100%", background: opslaan ? "#ccc" : PINK, color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: opslaan ? "default" : "pointer" }}>
           {opslaan ? "Opslaan..." : (isNieuw ? "Opslaan" : "Wijzigingen opslaan")}
@@ -756,17 +895,6 @@ export default function App() {
     });
   }
 
-  async function handleFotoToevoegen(oefeningId, url) {
-    const ex = oefeningen.find(function(e) { return e.id === oefeningId; });
-    if (!ex) return;
-    const nieuweFotos = (ex.fotos || []).concat([url]);
-    await updateDoc(doc(db, "oefeningen", oefeningId), { fotos: nieuweFotos });
-    setOpenOefening(function(prev) {
-      if (!prev || prev.id !== oefeningId) return prev;
-      return Object.assign({}, prev, { fotos: nieuweFotos });
-    });
-  }
-
   const totalSessies = oefeningen.reduce(function(a, e) { return a + (e.sessies || []).length; }, 0);
 
   function renderKaarten(lijst) {
@@ -795,7 +923,7 @@ export default function App() {
           <div>
             <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
             <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.20</span>
+            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.21</span>
           </div>
           <div style={{ fontSize: 9, color: "#bbb", fontWeight: 700 }}>{today}</div>
         </div>
