@@ -60,21 +60,81 @@ function BpmGrafiek({ sessies }) {
 
 function FotoGalerij({ fotos, onFotoToevoegen, uploading }) {
   const [pagina, setPagina] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
   const touchStart = useRef(null);
+  const lastDistance = useRef(null);
+  const lastOffset = useRef({ x: 0, y: 0 });
+  const dragStart = useRef(null);
   const invoerRef = useRef();
+  const imgRef = useRef();
 
-  function handleTouch(e) { touchStart.current = e.touches[0].clientX; }
+  function getDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function resetZoom() {
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  }
+
+  function handleTouchStart(e) {
+    if (e.touches.length === 2) {
+      lastDistance.current = getDistance(e.touches);
+      lastOffset.current = offset;
+    } else if (e.touches.length === 1) {
+      if (zoom > 1) {
+        dragStart.current = { x: e.touches[0].clientX - offset.x, y: e.touches[0].clientY - offset.y };
+      } else {
+        touchStart.current = e.touches[0].clientX;
+      }
+    }
+  }
+
+  function handleTouchMove(e) {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      const dist = getDistance(e.touches);
+      if (lastDistance.current) {
+        const ratio = dist / lastDistance.current;
+        setZoom(function(z) { return Math.min(4, Math.max(1, z * ratio)); });
+        lastDistance.current = dist;
+      }
+    } else if (e.touches.length === 1 && zoom > 1 && dragStart.current) {
+      setOffset({
+        x: e.touches[0].clientX - dragStart.current.x,
+        y: e.touches[0].clientY - dragStart.current.y
+      });
+    }
+  }
+
   function handleTouchEnd(e) {
-    if (!touchStart.current) return;
-    const diff = touchStart.current - e.changedTouches[0].clientX;
-    if (diff > 50 && pagina < fotos.length - 1) setPagina(function(p) { return p + 1; });
-    if (diff < -50 && pagina > 0) setPagina(function(p) { return p - 1; });
-    touchStart.current = null;
+    lastDistance.current = null;
+    dragStart.current = null;
+    if (zoom <= 1 && touchStart.current !== null && e.changedTouches.length === 1) {
+      const diff = touchStart.current - e.changedTouches[0].clientX;
+      if (diff > 50 && pagina < fotos.length - 1) {
+        setPagina(function(p) { return p + 1; });
+        resetZoom();
+      }
+      if (diff < -50 && pagina > 0) {
+        setPagina(function(p) { return p - 1; });
+        resetZoom();
+      }
+      touchStart.current = null;
+    }
   }
 
   function handleKies(e) {
     const bestanden = Array.from(e.target.files);
     onFotoToevoegen(bestanden);
+  }
+
+  function isLandscape() {
+    if (!imgRef.current) return false;
+    return imgRef.current.naturalWidth > imgRef.current.naturalHeight;
   }
 
   if (fotos.length === 0) {
@@ -86,7 +146,7 @@ function FotoGalerij({ fotos, onFotoToevoegen, uploading }) {
             <div style={{ color: PINK, fontWeight: 700, fontSize: 13 }}>Uploaden...</div>
           ) : (
             <div>
-              <div style={{ fontSize: 32, marginBottom: 6 }}>foto</div>
+              <div style={{ fontSize: 32, marginBottom: 6 }}>📷</div>
               <div style={{ fontSize: 13, color: "#999" }}>Tik om foto toe te voegen</div>
             </div>
           )}
@@ -98,43 +158,90 @@ function FotoGalerij({ fotos, onFotoToevoegen, uploading }) {
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <div onTouchStart={handleTouch} onTouchEnd={handleTouchEnd} style={{ position: "relative", borderRadius: 12, overflow: "hidden" }}>
-        <img src={fotos[pagina]} alt={"foto " + (pagina + 1)} style={{ width: "100%", display: "block", borderRadius: 12 }} />
-        <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 12 }}>
+      {/* Foto viewer */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          position: "relative",
+          borderRadius: 12,
+          overflow: "hidden",
+          background: "#111",
+          width: "100%",
+          aspectRatio: "16/9",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          touchAction: "none"
+        }}>
+        <img
+          ref={imgRef}
+          src={fotos[pagina]}
+          alt={"foto " + (pagina + 1)}
+          style={{
+            maxWidth: "100%",
+            maxHeight: "100%",
+            objectFit: "contain",
+            transform: "scale(" + zoom + ") translate(" + offset.x / zoom + "px, " + offset.y / zoom + "px)",
+            transformOrigin: "center center",
+            transition: zoom === 1 ? "transform 0.2s" : "none",
+            display: "block",
+            userSelect: "none",
+            WebkitUserSelect: "none"
+          }}
+        />
+
+        {/* Teller */}
+        <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 12 }}>
           {pagina + 1}/{fotos.length}
         </div>
+
+        {/* Zoom indicator */}
+        {zoom > 1 ? (
+          <div style={{ position: "absolute", bottom: 8, left: 8, background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 12 }}>
+            {Math.round(zoom * 100)}%
+          </div>
+        ) : null}
+
+        {/* Reset zoom knop */}
+        {zoom > 1 ? (
+          <button onClick={resetZoom}
+            style={{ position: "absolute", bottom: 8, right: 8, background: PINK, color: "#fff", border: "none", borderRadius: 10, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+            Reset
+          </button>
+        ) : null}
+
         {uploading ? (
           <div style={{ position: "absolute", inset: 0, background: "rgba(255,45,122,0.3)", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 12 }}>
             <div style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>Uploaden...</div>
           </div>
         ) : null}
       </div>
-      <div style={{ display: "flex", justifyContent: "center", gap: 5, marginTop: 8, alignItems: "center" }}>
-        <button onClick={function() { setPagina(function(p) { return Math.max(0, p - 1); }); }}
-          disabled={pagina === 0}
-          style={{ background: pagina === 0 ? "#eee" : PINK, color: pagina === 0 ? "#bbb" : "#fff", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 12, cursor: pagina === 0 ? "default" : "pointer" }}>
-          links
-        </button>
-        {fotos.map(function(_, i) {
+
+      {/* Thumbnail strip */}
+      <div style={{ display: "flex", gap: 6, marginTop: 8, overflowX: "auto", paddingBottom: 4 }}>
+        {fotos.map(function(foto, i) {
           return (
-            <div key={i} onClick={function() { setPagina(i); }}
-              style={{ width: i === pagina ? 18 : 7, height: 7, borderRadius: 4, background: i === pagina ? PINK : "#ddd", cursor: "pointer", transition: "all .2s" }} />
+            <img key={i} src={foto} alt={"thumb " + i}
+              onClick={function() { setPagina(i); resetZoom(); }}
+              style={{
+                width: 48, height: 48, objectFit: "cover", borderRadius: 8, flexShrink: 0, cursor: "pointer",
+                border: i === pagina ? "2.5px solid " + PINK : "2.5px solid transparent",
+                opacity: i === pagina ? 1 : 0.6
+              }} />
           );
         })}
-        <button onClick={function() { setPagina(function(p) { return Math.min(fotos.length - 1, p + 1); }); }}
-          disabled={pagina === fotos.length - 1}
-          style={{ background: pagina === fotos.length - 1 ? "#eee" : PINK, color: pagina === fotos.length - 1 ? "#bbb" : "#fff", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 12, cursor: pagina === fotos.length - 1 ? "default" : "pointer" }}>
-          rechts
-        </button>
-        <button onClick={function() { invoerRef.current.click(); }}
-          style={{ background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", marginLeft: 4 }}>
-          plus foto
-        </button>
+        <div onClick={function() { invoerRef.current.click(); }}
+          style={{ width: 48, height: 48, borderRadius: 8, border: "2px dashed #ddd", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", background: "#fafafa", fontSize: 20, color: "#bbb" }}>
+          +
+        </div>
         <input ref={invoerRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleKies} />
       </div>
     </div>
   );
 }
+
 
 function SessieFormulier({ oefening, onSave, onClose }) {
   const [bpm, setBpm] = useState(oefening.bpm);
