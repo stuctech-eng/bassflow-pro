@@ -53,8 +53,7 @@ function verwerkFoto(file, drempel) {
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
       for (var i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i+1], b = data[i+2];
-        const helderheid = (r + g + b) / 3;
+        const helderheid = (data[i] + data[i+1] + data[i+2]) / 3;
         if (helderheid < drempel) {
           data[i] = 0; data[i+1] = 0; data[i+2] = 0;
         } else {
@@ -69,6 +68,42 @@ function verwerkFoto(file, drempel) {
     };
     img.src = url;
   });
+}
+
+async function analyseerMetClaude(fotoUrls, oefeningTitel) {
+  const messages = [];
+  const content = [];
+
+  content.push({
+    type: "text",
+    text: "Je bent een ervaren muziekleraar gespecialiseerd in basgitaar. Analyseer de volgende tablature/notenbalk foto's van de oefening '" + oefeningTitel + "'. Geef een volledige Nederlandse analyse met:\n\n1. BESCHRIJVING: Wat staat er in de oefening (noten, akkoorden, ritme, tempo)\n2. TABLATURE: Beschrijf de noten per snaar (E, A, D, G) met fret nummers\n3. NOTENBALK: Beschrijf de noten in standaard notatie als die aanwezig is\n4. OEFENTIPS: Specifieke tips voor de bassist\n5. MOEILIJKHEIDSGRAAD: Beoordeling en aandachtspunten\n\nAls er tekst in een andere taal staat, vertaal die naar Nederlands. Wees concreet en praktisch."
+  });
+
+  for (var i = 0; i < fotoUrls.length; i++) {
+    content.push({
+      type: "image",
+      source: {
+        type: "url",
+        url: fotoUrls[i]
+      }
+    });
+  }
+
+  messages.push({ role: "user", content: content });
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      messages: messages
+    })
+  });
+
+  const data = await response.json();
+  const tekst = data.content.filter(function(c) { return c.type === "text"; }).map(function(c) { return c.text; }).join("\n");
+  return tekst;
 }
 
 function Badge({ level }) {
@@ -153,9 +188,7 @@ function SessieRij({ sessie, onVerwijder, onBewerk }) {
             <label style={{ fontSize: 10, fontWeight: 700, color: "#888" }}>TEMPO</label>
             <span style={{ fontSize: 11, fontWeight: 800, color: PINK }}>{bpm} BPM</span>
           </div>
-          <input type="range" min={40} max={240} value={bpm}
-            onChange={function(e) { setBpm(Number(e.target.value)); }}
-            style={{ width: "100%", accentColor: PINK }} />
+          <input type="range" min={40} max={240} value={bpm} onChange={function(e) { setBpm(Number(e.target.value)); }} style={{ width: "100%", accentColor: PINK }} />
         </div>
         <textarea value={notitie} onChange={function(e) { setNotitie(e.target.value); }}
           placeholder="Notitie..." rows={2}
@@ -437,7 +470,6 @@ function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, onSessieUpdate, 
         <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} />
       </div>
 
-      {/* Audio speler */}
       {audioUrl ? (
         <div style={{ background: "#fff", borderBottom: "1px solid #eee", padding: "8px 14px", flexShrink: 0 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: "#999", marginBottom: 4 }}>AUDIO</div>
@@ -551,7 +583,7 @@ function ModuleScherm({ module, oefeningen, onClose, onOpen, onEdit, onDelete })
   );
 }
 
-function OefeningFormulier({ oefening, onSave, onClose, onAudioUpdate }) {
+function OefeningFormulier({ oefening, onSave, onClose }) {
   const isNieuw = !oefening;
   const [titel, setTitel] = useState(oefening ? oefening.titel : "");
   const [moduleId, setModuleId] = useState(oefening ? oefening.moduleId : "mod1");
@@ -563,6 +595,8 @@ function OefeningFormulier({ oefening, onSave, onClose, onAudioUpdate }) {
   const [audioUploading, setAudioUploading] = useState(false);
   const [audioUrl, setAudioUrl] = useState(oefening ? (oefening.audioUrl || "") : "");
   const [drempel, setDrempel] = useState(160);
+  const [analyseBezig, setAnalyseBezig] = useState(false);
+  const [analyseStatus, setAnalyseStatus] = useState("");
   const invoerRef = useRef();
   const audioRef = useRef();
 
@@ -572,10 +606,9 @@ function OefeningFormulier({ oefening, onSave, onClose, onAudioUpdate }) {
     setUploading(true);
     const nieuweFotos = [...fotos];
     for (var i = 0; i < bestanden.length; i++) {
-      var bestand = bestanden[i];
       var pad = "fotos/" + oefening.id + "/" + Date.now() + "_" + i + ".jpg";
       var storageRef = ref(storage, pad);
-      await uploadBytes(storageRef, bestand);
+      await uploadBytes(storageRef, bestanden[i]);
       var url = await getDownloadURL(storageRef);
       nieuweFotos.push(url);
     }
@@ -634,6 +667,21 @@ function OefeningFormulier({ oefening, onSave, onClose, onAudioUpdate }) {
     setAudioUploading(false);
   }
 
+  async function handleAnalyseer() {
+    if (!oefening || fotos.length === 0) return;
+    setAnalyseBezig(true);
+    setAnalyseStatus("Bezig met analyseren van " + fotos.length + " foto" + (fotos.length > 1 ? "'s" : "") + "...");
+    try {
+      const analyse = await analyseerMetClaude(fotos, titel);
+      await updateDoc(doc(db, "oefeningen", oefening.id), { info: analyse });
+      setAnalyseStatus("✓ Analyse opgeslagen in Info blok!");
+      setTimeout(function() { setAnalyseStatus(""); }, 3000);
+    } catch (err) {
+      setAnalyseStatus("Fout bij analyse. Probeer opnieuw.");
+    }
+    setAnalyseBezig(false);
+  }
+
   async function handleSave() {
     if (!titel.trim()) return;
     setOpslaan(true);
@@ -659,14 +707,12 @@ function OefeningFormulier({ oefening, onSave, onClose, onAudioUpdate }) {
           <button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: "50%", width: 30, height: 30, cursor: "pointer" }}>✕</button>
         </div>
 
-        {/* Titel */}
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>TITEL</label>
           <input value={titel} onChange={function(e) { setTitel(e.target.value); }} placeholder="Naam van de oefening"
             style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
         </div>
 
-        {/* Module */}
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 4 }}>MODULE</label>
           <select value={moduleId} onChange={function(e) { setModuleId(e.target.value); }}
@@ -675,7 +721,6 @@ function OefeningFormulier({ oefening, onSave, onClose, onAudioUpdate }) {
           </select>
         </div>
 
-        {/* BPM */}
         <div style={{ marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
             <label style={{ fontSize: 11, fontWeight: 700, color: "#888" }}>TEMPO</label>
@@ -697,7 +742,6 @@ function OefeningFormulier({ oefening, onSave, onClose, onAudioUpdate }) {
                 <input ref={invoerRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleFotoKies} />
               </div>
 
-              {/* Drempel slider */}
               {fotos.length > 0 ? (
                 <div style={{ marginBottom: 10, background: "#fafafa", borderRadius: 10, padding: "10px 12px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -708,6 +752,21 @@ function OefeningFormulier({ oefening, onSave, onClose, onAudioUpdate }) {
                     onChange={function(e) { setDrempel(Number(e.target.value)); }}
                     style={{ width: "100%", accentColor: PINK }} />
                   <div style={{ fontSize: 9, color: "#bbb", marginTop: 2 }}>Lager = meer zwart · Hoger = meer wit</div>
+                </div>
+              ) : null}
+
+              {/* AI Analyse knop */}
+              {fotos.length > 0 ? (
+                <div style={{ marginBottom: 10 }}>
+                  <button onClick={handleAnalyseer} disabled={analyseBezig}
+                    style={{ width: "100%", background: analyseBezig ? "#eee" : "#8B2FC9", color: analyseBezig ? "#bbb" : "#fff", border: "none", borderRadius: 10, padding: "11px", fontSize: 12, fontWeight: 800, cursor: analyseBezig ? "default" : "pointer" }}>
+                    {analyseBezig ? "🤖 Analyseren..." : "🤖 Analyseer alle foto's met AI"}
+                  </button>
+                  {analyseStatus ? (
+                    <div style={{ marginTop: 6, fontSize: 11, color: analyseStatus.startsWith("✓") ? "#00B84C" : analyseStatus.startsWith("Fout") ? "#E53935" : "#888", textAlign: "center", fontWeight: 600 }}>
+                      {analyseStatus}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -733,7 +792,6 @@ function OefeningFormulier({ oefening, onSave, onClose, onAudioUpdate }) {
                               style={{ background: "#FFF0F0", color: "#E53935", border: "none", borderRadius: 6, padding: "4px 7px", fontSize: 12, cursor: "pointer" }}>✕</button>
                           </div>
                         </div>
-                        {/* Clean knop */}
                         <button onClick={function() { handleVerwerk(i); }} disabled={status === "bezig"}
                           style={{ marginTop: 6, width: "100%", background: status === "klaar" ? "#00B84C" : status === "bezig" ? "#eee" : PINK_LIGHT, color: status === "klaar" ? "#fff" : status === "bezig" ? "#bbb" : PINK, border: "none", borderRadius: 8, padding: "6px", fontSize: 11, fontWeight: 700, cursor: status === "bezig" ? "default" : "pointer" }}>
                           {status === "bezig" ? "Bezig..." : status === "klaar" ? "✓ Clean gemaakt" : status === "fout" ? "Fout -- opnieuw?" : "🪄 Maak clean"}
@@ -923,7 +981,7 @@ export default function App() {
           <div>
             <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
             <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.21</span>
+            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.22</span>
           </div>
           <div style={{ fontSize: 9, color: "#bbb", fontWeight: 700 }}>{today}</div>
         </div>
