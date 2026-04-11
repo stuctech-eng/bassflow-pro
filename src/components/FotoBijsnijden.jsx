@@ -13,36 +13,22 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
   const sleepStart = useRef(null);
   const cropStart = useRef(null);
   const [opslaan, setOpslaan] = useState(false);
+  const schaalRef = useRef(1);
+  const imgOffsetRef = useRef({ x: 0, y: 0 });
+  const cropBoxRef = useRef({ x: 40, y: 40, w: 280, h: 180 });
 
-useEffect(function() {
-  const img = new Image();
-  img.onload = function() {
-    imgRef.current = img;
-    tekenCanvas(img, { x: 40, y: 40, w: 280, h: 180 });
-    setImgGeladen(true);
-  };
-  img.onerror = function() {
-    // Probeer zonder fetch als fallback
-    const img2 = new Image();
-    img2.crossOrigin = "anonymous";
-    img2.onload = function() {
-      imgRef.current = img2;
-      tekenCanvas(img2, { x: 40, y: 40, w: 280, h: 180 });
+  useEffect(function() {
+    const img = new Image();
+    img.onload = function() {
+      imgRef.current = img;
+      tekenCanvas(img, cropBoxRef.current);
       setImgGeladen(true);
     };
-    img2.src = fotoUrl + "?t=" + Date.now();
-  };
-  fetch(fotoUrl, { mode: "cors" })
-    .then(function(r) { return r.blob(); })
-    .then(function(blob) {
-      img.src = URL.createObjectURL(blob);
-    })
-    .catch(function() {
-      img.src = fotoUrl;
-    });
-}, [fotoUrl]);
-
-
+    fetch(fotoUrl, { mode: "cors" })
+      .then(function(r) { return r.blob(); })
+      .then(function(blob) { img.src = URL.createObjectURL(blob); })
+      .catch(function() { img.src = fotoUrl; });
+  }, [fotoUrl]);
 
   function tekenCanvas(img, crop) {
     const canvas = canvasRef.current;
@@ -55,6 +41,8 @@ useEffect(function() {
     const s = Math.min(schaalX, schaalY);
     const ox = (W - img.width * s) / 2;
     const oy = (H - img.height * s) / 2;
+    schaalRef.current = s;
+    imgOffsetRef.current = { x: ox, y: oy };
     setSchaal(s);
     setImgOffset({ x: ox, y: oy });
     ctx.clearRect(0, 0, W, H);
@@ -121,15 +109,15 @@ useEffect(function() {
   function handleStart(e) {
     e.preventDefault();
     const pos = getCanvasPos(e);
-    const hoek = dichtsteBijHoek(pos, cropBox);
+    const hoek = dichtsteBijHoek(pos, cropBoxRef.current);
     if (hoek) {
       setActieveHoek(hoek);
       sleepStart.current = pos;
-      cropStart.current = Object.assign({}, cropBox);
-    } else if (binnenCrop(pos, cropBox)) {
+      cropStart.current = Object.assign({}, cropBoxRef.current);
+    } else if (binnenCrop(pos, cropBoxRef.current)) {
       setSlepen(true);
       sleepStart.current = pos;
-      cropStart.current = Object.assign({}, cropBox);
+      cropStart.current = Object.assign({}, cropBoxRef.current);
     }
   }
 
@@ -144,21 +132,22 @@ useEffect(function() {
     const H = canvas.height;
     const MIN = 60;
     var nieuwCrop = Object.assign({}, cropStart.current);
-    if (actieveHoek) {
-      if (actieveHoek === "lt") {
+    const hoek = actieveHoek;
+    if (hoek) {
+      if (hoek === "lt") {
         nieuwCrop.x = Math.min(cropStart.current.x + dx, cropStart.current.x + cropStart.current.w - MIN);
         nieuwCrop.y = Math.min(cropStart.current.y + dy, cropStart.current.y + cropStart.current.h - MIN);
         nieuwCrop.w = cropStart.current.w - (nieuwCrop.x - cropStart.current.x);
         nieuwCrop.h = cropStart.current.h - (nieuwCrop.y - cropStart.current.y);
-      } else if (actieveHoek === "rt") {
+      } else if (hoek === "rt") {
         nieuwCrop.w = Math.max(MIN, cropStart.current.w + dx);
         nieuwCrop.y = Math.min(cropStart.current.y + dy, cropStart.current.y + cropStart.current.h - MIN);
         nieuwCrop.h = cropStart.current.h - (nieuwCrop.y - cropStart.current.y);
-      } else if (actieveHoek === "lb") {
+      } else if (hoek === "lb") {
         nieuwCrop.x = Math.min(cropStart.current.x + dx, cropStart.current.x + cropStart.current.w - MIN);
         nieuwCrop.w = cropStart.current.w - (nieuwCrop.x - cropStart.current.x);
         nieuwCrop.h = Math.max(MIN, cropStart.current.h + dy);
-      } else if (actieveHoek === "rb") {
+      } else if (hoek === "rb") {
         nieuwCrop.w = Math.max(MIN, cropStart.current.w + dx);
         nieuwCrop.h = Math.max(MIN, cropStart.current.h + dy);
       }
@@ -170,6 +159,7 @@ useEffect(function() {
     nieuwCrop.y = Math.max(0, nieuwCrop.y);
     if (nieuwCrop.x + nieuwCrop.w > W) nieuwCrop.w = W - nieuwCrop.x;
     if (nieuwCrop.y + nieuwCrop.h > H) nieuwCrop.h = H - nieuwCrop.y;
+    cropBoxRef.current = nieuwCrop;
     setCropBox(nieuwCrop);
     if (imgRef.current) tekenCanvas(imgRef.current, nieuwCrop);
   }
@@ -182,36 +172,42 @@ useEffect(function() {
   }
 
   async function handleOpslaan() {
+    if (!imgRef.current || opslaan) return;
     setOpslaan(true);
-    const img = imgRef.current;
-    const s = schaal;
-    const ox = imgOffset.x;
-    const oy = imgOffset.y;
-    const uitvoerCanvas = document.createElement("canvas");
-    uitvoerCanvas.width = Math.round(cropBox.w / s);
-    uitvoerCanvas.height = Math.round(cropBox.h / s);
-    const ctx = uitvoerCanvas.getContext("2d");
-    ctx.drawImage(img,
-      (cropBox.x - ox) / s, (cropBox.y - oy) / s, cropBox.w / s, cropBox.h / s,
-      0, 0, uitvoerCanvas.width, uitvoerCanvas.height
-    );
-    uitvoerCanvas.toBlob(async function(blob) {
-      await onOpslaan(blob);
+    try {
+      const img = imgRef.current;
+      const s = schaalRef.current;
+      const ox = imgOffsetRef.current.x;
+      const oy = imgOffsetRef.current.y;
+      const crop = cropBoxRef.current;
+      const uitvoerCanvas = document.createElement("canvas");
+      uitvoerCanvas.width = Math.round(crop.w / s);
+      uitvoerCanvas.height = Math.round(crop.h / s);
+      const ctx = uitvoerCanvas.getContext("2d");
+      ctx.drawImage(img,
+        (crop.x - ox) / s, (crop.y - oy) / s, crop.w / s, crop.h / s,
+        0, 0, uitvoerCanvas.width, uitvoerCanvas.height
+      );
+      uitvoerCanvas.toBlob(async function(blob) {
+        await onOpslaan(blob);
+        setOpslaan(false);
+      }, "image/jpeg", 0.92);
+    } catch (err) {
       setOpslaan(false);
-    }, "image/jpeg", 0.92);
+    }
   }
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 500, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#111", flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "52px 16px 12px", background: "#111", flexShrink: 0 }}>
         <button onClick={onSluiten}
-          style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 20, padding: "6px 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+          style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 20, padding: "8px 16px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
           Annuleren
         </button>
         <div style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>Bijsnijden</div>
         <button onClick={handleOpslaan} disabled={!imgGeladen || opslaan}
-          style={{ background: imgGeladen ? PINK : "#555", border: "none", borderRadius: 20, padding: "6px 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: imgGeladen ? "pointer" : "default" }}>
-          {opslaan ? "..." : "Opslaan"}
+          style={{ background: imgGeladen ? PINK : "#555", border: "none", borderRadius: 20, padding: "8px 16px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: imgGeladen ? "pointer" : "default" }}>
+          {opslaan ? "Bezig..." : "Bewaar"}
         </button>
       </div>
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
@@ -225,7 +221,7 @@ useEffect(function() {
           style={{ width: "100%", maxWidth: 360, borderRadius: 8, touchAction: "none" }}
         />
       </div>
-      <div style={{ padding: "10px 16px 24px", textAlign: "center", color: "#666", fontSize: 11 }}>
+      <div style={{ padding: "10px 16px 40px", textAlign: "center", color: "#666", fontSize: 11 }}>
         Sleep de hoeken om bij te snijden · Sleep binnen het vak om te verplaatsen
       </div>
     </div>
