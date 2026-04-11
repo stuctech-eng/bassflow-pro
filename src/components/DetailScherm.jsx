@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { updateDoc, doc } from "firebase/firestore";
-import { db } from "../firebase.js";
 import { PINK, PINK_LIGHT, DARK, BG, MODULES } from "../constants.js";
 import { useOrientation } from "../hooks.js";
 import Badge from "./Badge.jsx";
@@ -31,8 +29,10 @@ export default function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, o
 
   if (landscape) {
     return (
-      <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
-        <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} />
+      <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif", overflow: "hidden" }}>
+        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+          <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} />
+        </div>
         <div style={{ background: "#f2f2f2", borderTop: "1px solid #ddd", padding: "6px 12px", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", minWidth: 36 }}>
             <span style={{ fontSize: 18 }}>❓</span>
@@ -82,7 +82,8 @@ export default function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, o
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 200, display: "flex", flexDirection: "column", fontFamily: "sans-serif", overflow: "hidden" }}>
+
       <div style={{ display: "flex", alignItems: "center", padding: "10px 14px", gap: 10, background: "#fff", borderBottom: "1px solid #eee", flexShrink: 0 }}>
         <button onClick={onClose} style={{ background: "#f0f0f0", border: "none", borderRadius: 20, padding: "5px 12px", color: DARK, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>← terug</button>
         <div style={{ flex: 1, fontWeight: 800, fontSize: 14, color: DARK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{oefening.titel}</div>
@@ -92,7 +93,7 @@ export default function DetailScherm({ oefening, onClose, onEdit, onSessieAdd, o
         </button>
       </div>
 
-      <div style={{ width: "100%", aspectRatio: "16/7", flexShrink: 0, borderBottom: "1px solid #eee", display: "flex" }}>
+      <div style={{ width: "100%", aspectRatio: "3/1", flexShrink: 0, borderBottom: "1px solid #eee", display: "flex", maxHeight: "30vh" }}>
         <TablatureViewer fotos={fotos} fotoIndex={fotoIndex} setFotoIndex={setFotoIndex} />
       </div>
 
