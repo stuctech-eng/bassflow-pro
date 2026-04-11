@@ -14,16 +14,21 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
   const cropStart = useRef(null);
   const [opslaan, setOpslaan] = useState(false);
 
-  useEffect(function() {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = function() {
-      imgRef.current = img;
-      tekenCanvas(img, { x: 40, y: 40, w: 280, h: 180 });
-      setImgGeladen(true);
-    };
-    img.src = fotoUrl;
-  }, [fotoUrl]);
+useEffect(function() {
+  const img = new Image();
+  img.onload = function() {
+    imgRef.current = img;
+    tekenCanvas(img, { x: 40, y: 40, w: 280, h: 180 });
+    setImgGeladen(true);
+  };
+  // Laad via blob om CORS te omzeilen
+  fetch(fotoUrl)
+    .then(function(r) { return r.blob(); })
+    .then(function(blob) {
+      img.src = URL.createObjectURL(blob);
+    });
+}, [fotoUrl]);
+
 
   function tekenCanvas(img, crop) {
     const canvas = canvasRef.current;
