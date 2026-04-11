@@ -5,17 +5,14 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
   const canvasRef = useRef();
   const imgRef = useRef();
   const [imgGeladen, setImgGeladen] = useState(false);
-  const [schaal, setSchaal] = useState(1);
-  const [imgOffset, setImgOffset] = useState({ x: 0, y: 0 });
-  const [cropBox, setCropBox] = useState({ x: 40, y: 40, w: 280, h: 180 });
-  const [actieveHoek, setActieveHoek] = useState(null);
-  const [slepen, setSlepen] = useState(false);
-  const sleepStart = useRef(null);
-  const cropStart = useRef(null);
   const [opslaan, setOpslaan] = useState(false);
   const schaalRef = useRef(1);
   const imgOffsetRef = useRef({ x: 0, y: 0 });
   const cropBoxRef = useRef({ x: 40, y: 40, w: 280, h: 180 });
+  const actieveHoekRef = useRef(null);
+  const slepenRef = useRef(false);
+  const sleepStart = useRef(null);
+  const cropStart = useRef(null);
 
   useEffect(function() {
     const img = new Image();
@@ -36,18 +33,14 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
     const ctx = canvas.getContext("2d");
     const W = canvas.width;
     const H = canvas.height;
-    const schaalX = W / img.width;
-    const schaalY = H / img.height;
-    const s = Math.min(schaalX, schaalY);
+    const s = Math.min(W / img.width, H / img.height);
     const ox = (W - img.width * s) / 2;
     const oy = (H - img.height * s) / 2;
     schaalRef.current = s;
     imgOffsetRef.current = { x: ox, y: oy };
-    setSchaal(s);
-    setImgOffset({ x: ox, y: oy });
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(img, ox, oy, img.width * s, img.height * s);
-    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
     ctx.fillRect(0, 0, W, H);
     ctx.clearRect(crop.x, crop.y, crop.w, crop.h);
     ctx.drawImage(img,
@@ -57,23 +50,17 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
     ctx.strokeStyle = PINK;
     ctx.lineWidth = 2;
     ctx.strokeRect(crop.x, crop.y, crop.w, crop.h);
-    ctx.strokeStyle = "rgba(255,45,122,0.4)";
+    ctx.strokeStyle = "rgba(255,45,122,0.35)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(crop.x + crop.w / 3, crop.y);
-    ctx.lineTo(crop.x + crop.w / 3, crop.y + crop.h);
-    ctx.moveTo(crop.x + crop.w * 2 / 3, crop.y);
-    ctx.lineTo(crop.x + crop.w * 2 / 3, crop.y + crop.h);
-    ctx.moveTo(crop.x, crop.y + crop.h / 3);
-    ctx.lineTo(crop.x + crop.w, crop.y + crop.h / 3);
-    ctx.moveTo(crop.x, crop.y + crop.h * 2 / 3);
-    ctx.lineTo(crop.x + crop.w, crop.y + crop.h * 2 / 3);
+    ctx.moveTo(crop.x + crop.w / 3, crop.y); ctx.lineTo(crop.x + crop.w / 3, crop.y + crop.h);
+    ctx.moveTo(crop.x + crop.w * 2 / 3, crop.y); ctx.lineTo(crop.x + crop.w * 2 / 3, crop.y + crop.h);
+    ctx.moveTo(crop.x, crop.y + crop.h / 3); ctx.lineTo(crop.x + crop.w, crop.y + crop.h / 3);
+    ctx.moveTo(crop.x, crop.y + crop.h * 2 / 3); ctx.lineTo(crop.x + crop.w, crop.y + crop.h * 2 / 3);
     ctx.stroke();
     ctx.fillStyle = PINK;
     [[crop.x, crop.y], [crop.x + crop.w, crop.y], [crop.x, crop.y + crop.h], [crop.x + crop.w, crop.y + crop.h]].forEach(function(pt) {
-      ctx.beginPath();
-      ctx.arc(pt[0], pt[1], 10, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(pt[0], pt[1], 11, 0, Math.PI * 2); ctx.fill();
     });
   }
 
@@ -97,27 +84,31 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
     for (var i = 0; i < hoeken.length; i++) {
       const dx = pos.x - hoeken[i].x;
       const dy = pos.y - hoeken[i].y;
-      if (Math.sqrt(dx * dx + dy * dy) < 28) return hoeken[i].naam;
+      if (Math.sqrt(dx * dx + dy * dy) < 30) return hoeken[i].naam;
     }
     return null;
   }
 
   function binnenCrop(pos, crop) {
-    return pos.x > crop.x && pos.x < crop.x + crop.w && pos.y > crop.y && pos.y < crop.y + crop.h;
+    return pos.x > crop.x + 15 && pos.x < crop.x + crop.w - 15 &&
+           pos.y > crop.y + 15 && pos.y < crop.y + crop.h - 15;
   }
 
   function handleStart(e) {
     e.preventDefault();
     const pos = getCanvasPos(e);
-    const hoek = dichtsteBijHoek(pos, cropBoxRef.current);
+    const crop = cropBoxRef.current;
+    const hoek = dichtsteBijHoek(pos, crop);
     if (hoek) {
-      setActieveHoek(hoek);
+      actieveHoekRef.current = hoek;
+      slepenRef.current = false;
       sleepStart.current = pos;
-      cropStart.current = Object.assign({}, cropBoxRef.current);
-    } else if (binnenCrop(pos, cropBoxRef.current)) {
-      setSlepen(true);
+      cropStart.current = Object.assign({}, crop);
+    } else if (binnenCrop(pos, crop)) {
+      slepenRef.current = true;
+      actieveHoekRef.current = null;
       sleepStart.current = pos;
-      cropStart.current = Object.assign({}, cropBoxRef.current);
+      cropStart.current = Object.assign({}, crop);
     }
   }
 
@@ -127,47 +118,48 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
     const pos = getCanvasPos(e);
     const dx = pos.x - sleepStart.current.x;
     const dy = pos.y - sleepStart.current.y;
-    const canvas = canvasRef.current;
-    const W = canvas.width;
-    const H = canvas.height;
+    const W = canvasRef.current.width;
+    const H = canvasRef.current.height;
     const MIN = 60;
-    var nieuwCrop = Object.assign({}, cropStart.current);
-    const hoek = actieveHoek;
+    const start = cropStart.current;
+    var c = Object.assign({}, start);
+    const hoek = actieveHoekRef.current;
+
     if (hoek) {
+      // Hoek slepen -- resize
       if (hoek === "lt") {
-        nieuwCrop.x = Math.min(cropStart.current.x + dx, cropStart.current.x + cropStart.current.w - MIN);
-        nieuwCrop.y = Math.min(cropStart.current.y + dy, cropStart.current.y + cropStart.current.h - MIN);
-        nieuwCrop.w = cropStart.current.w - (nieuwCrop.x - cropStart.current.x);
-        nieuwCrop.h = cropStart.current.h - (nieuwCrop.y - cropStart.current.y);
+        c.x = Math.max(0, Math.min(start.x + dx, start.x + start.w - MIN));
+        c.y = Math.max(0, Math.min(start.y + dy, start.y + start.h - MIN));
+        c.w = start.w + (start.x - c.x);
+        c.h = start.h + (start.y - c.y);
       } else if (hoek === "rt") {
-        nieuwCrop.w = Math.max(MIN, cropStart.current.w + dx);
-        nieuwCrop.y = Math.min(cropStart.current.y + dy, cropStart.current.y + cropStart.current.h - MIN);
-        nieuwCrop.h = cropStart.current.h - (nieuwCrop.y - cropStart.current.y);
+        c.w = Math.max(MIN, Math.min(start.w + dx, W - start.x));
+        c.y = Math.max(0, Math.min(start.y + dy, start.y + start.h - MIN));
+        c.h = start.h + (start.y - c.y);
       } else if (hoek === "lb") {
-        nieuwCrop.x = Math.min(cropStart.current.x + dx, cropStart.current.x + cropStart.current.w - MIN);
-        nieuwCrop.w = cropStart.current.w - (nieuwCrop.x - cropStart.current.x);
-        nieuwCrop.h = Math.max(MIN, cropStart.current.h + dy);
+        c.x = Math.max(0, Math.min(start.x + dx, start.x + start.w - MIN));
+        c.w = start.w + (start.x - c.x);
+        c.h = Math.max(MIN, Math.min(start.h + dy, H - start.y));
       } else if (hoek === "rb") {
-        nieuwCrop.w = Math.max(MIN, cropStart.current.w + dx);
-        nieuwCrop.h = Math.max(MIN, cropStart.current.h + dy);
+        c.w = Math.max(MIN, Math.min(start.w + dx, W - start.x));
+        c.h = Math.max(MIN, Math.min(start.h + dy, H - start.y));
       }
-    } else if (slepen) {
-      nieuwCrop.x = Math.max(0, Math.min(W - cropStart.current.w, cropStart.current.x + dx));
-      nieuwCrop.y = Math.max(0, Math.min(H - cropStart.current.h, cropStart.current.y + dy));
+    } else if (slepenRef.current) {
+      // Verplaatsen -- breedte en hoogte blijven EXACT hetzelfde
+      c.x = Math.max(0, Math.min(W - start.w, start.x + dx));
+      c.y = Math.max(0, Math.min(H - start.h, start.y + dy));
+      c.w = start.w;
+      c.h = start.h;
     }
-    nieuwCrop.x = Math.max(0, nieuwCrop.x);
-    nieuwCrop.y = Math.max(0, nieuwCrop.y);
-    if (nieuwCrop.x + nieuwCrop.w > W) nieuwCrop.w = W - nieuwCrop.x;
-    if (nieuwCrop.y + nieuwCrop.h > H) nieuwCrop.h = H - nieuwCrop.y;
-    cropBoxRef.current = nieuwCrop;
-    setCropBox(nieuwCrop);
-    if (imgRef.current) tekenCanvas(imgRef.current, nieuwCrop);
+
+    cropBoxRef.current = c;
+    if (imgRef.current) tekenCanvas(imgRef.current, c);
   }
 
   function handleEnd(e) {
     e.preventDefault();
-    setActieveHoek(null);
-    setSlepen(false);
+    actieveHoekRef.current = null;
+    slepenRef.current = false;
     sleepStart.current = null;
   }
 
@@ -180,19 +172,25 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
       const ox = imgOffsetRef.current.x;
       const oy = imgOffsetRef.current.y;
       const crop = cropBoxRef.current;
-      const uitvoerCanvas = document.createElement("canvas");
-      uitvoerCanvas.width = Math.round(crop.w / s);
-      uitvoerCanvas.height = Math.round(crop.h / s);
-      const ctx = uitvoerCanvas.getContext("2d");
+      const breedte = Math.max(1, Math.round(crop.w / s));
+      const hoogte = Math.max(1, Math.round(crop.h / s));
+      const uitvoer = document.createElement("canvas");
+      uitvoer.width = breedte;
+      uitvoer.height = hoogte;
+      const ctx = uitvoer.getContext("2d");
       ctx.drawImage(img,
-        (crop.x - ox) / s, (crop.y - oy) / s, crop.w / s, crop.h / s,
-        0, 0, uitvoerCanvas.width, uitvoerCanvas.height
+        (crop.x - ox) / s, (crop.y - oy) / s,
+        crop.w / s, crop.h / s,
+        0, 0, breedte, hoogte
       );
-      uitvoerCanvas.toBlob(async function(blob) {
-        await onOpslaan(blob);
+      uitvoer.toBlob(async function(blob) {
+        if (blob) {
+          await onOpslaan(blob);
+        }
         setOpslaan(false);
       }, "image/jpeg", 0.92);
     } catch (err) {
+      console.error("Bijsnijden fout:", err);
       setOpslaan(false);
     }
   }
@@ -222,7 +220,7 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
         />
       </div>
       <div style={{ padding: "10px 16px 40px", textAlign: "center", color: "#666", fontSize: 11 }}>
-        Sleep de hoeken om bij te snijden · Sleep binnen het vak om te verplaatsen
+        Sleep hoeken om bij te snijden · Sleep midden om te verplaatsen
       </div>
     </div>
   );
