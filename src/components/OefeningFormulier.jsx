@@ -3,7 +3,6 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc } from "firebase/firestore";
 import { db, storage } from "../firebase.js";
 import { PINK, PINK_LIGHT, DARK, MODULES } from "../constants.js";
-
 import { verwerkFoto } from "../utils.js";
 import FotoBijsnijden from "./FotoBijsnijden.jsx";
 
@@ -19,8 +18,8 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
   const [audioUploading, setAudioUploading] = useState(false);
   const [audioUrl, setAudioUrl] = useState(oefening ? (oefening.audioUrl || "") : "");
   const [drempel, setDrempel] = useState(160);
-  const [analyseBezig, setAnalyseBezig] = useState(false);
-  const [analyseStatus, setAnalyseStatus] = useState("");
+  const [bijsnijdFoto, setBijsnijdFoto] = useState(null);
+  const [bijsnijdIndex, setBijsnijdIndex] = useState(null);
   const invoerRef = useRef();
   const audioRef = useRef();
 
@@ -75,6 +74,18 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
     [nieuweFotos[index], nieuweFotos[naar]] = [nieuweFotos[naar], nieuweFotos[index]];
     setFotos(nieuweFotos);
     if (oefening) updateDoc(doc(db, "oefeningen", oefening.id), { fotos: nieuweFotos });
+  }
+
+  async function handleBijsnijdOpslaan(blob) {
+    const pad = "fotos/" + oefening.id + "/crop_" + Date.now() + ".jpg";
+    const storageRef = ref(storage, pad);
+    await uploadBytes(storageRef, blob);
+    const nieuweUrl = await getDownloadURL(storageRef);
+    const nieuweFotos = fotos.map(function(f, i) { return i === bijsnijdIndex ? nieuweUrl : f; });
+    setFotos(nieuweFotos);
+    await updateDoc(doc(db, "oefeningen", oefening.id), { fotos: nieuweFotos });
+    setBijsnijdFoto(null);
+    setBijsnijdIndex(null);
   }
 
   async function handleAudioKies(e) {
@@ -174,8 +185,13 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
                     return (
                       <div key={i} style={{ background: "#fafafa", borderRadius: 10, padding: 8 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <img src={foto} alt={"foto " + (i + 1)} style={{ width: 56, height: 40, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />
-                          <div style={{ flex: 1, fontSize: 11, color: "#999" }}>Foto {i + 1}</div>
+                          <img src={foto} alt={"foto " + (i + 1)}
+                            onClick={function() { setBijsnijdFoto(foto); setBijsnijdIndex(i); }}
+                            style={{ width: 56, height: 40, objectFit: "cover", borderRadius: 7, flexShrink: 0, cursor: "pointer", border: "2px solid " + PINK_LIGHT }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 11, color: "#999" }}>Foto {i + 1}</div>
+                            <div style={{ fontSize: 9, color: PINK, fontWeight: 600 }}>Tik om bij te snijden</div>
+                          </div>
                           <div style={{ display: "flex", gap: 4 }}>
                             <button onClick={function() { handleVerschuif(i, -1); }} disabled={i === 0}
                               style={{ background: i === 0 ? "#eee" : "#f0f0f0", border: "none", borderRadius: 6, padding: "4px 7px", fontSize: 12, cursor: i === 0 ? "default" : "pointer", color: i === 0 ? "#ccc" : "#666" }}>↑</button>
@@ -227,6 +243,14 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
           {opslaan ? "Opslaan..." : (isNieuw ? "Opslaan" : "Wijzigingen opslaan")}
         </button>
       </div>
+
+      {bijsnijdFoto ? (
+        <FotoBijsnijden
+          fotoUrl={bijsnijdFoto}
+          onOpslaan={handleBijsnijdOpslaan}
+          onSluiten={function() { setBijsnijdFoto(null); setBijsnijdIndex(null); }}
+        />
+      ) : null}
     </div>
   );
 }
