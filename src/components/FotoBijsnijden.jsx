@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { PINK, DARK } from "../constants.js";
+import { PINK } from "../constants.js";
 
 export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
   const canvasRef = useRef();
-  const containerRef = useRef();
   const imgRef = useRef();
   const [imgGeladen, setImgGeladen] = useState(false);
   const [schaal, setSchaal] = useState(1);
@@ -20,7 +19,7 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
     img.crossOrigin = "anonymous";
     img.onload = function() {
       imgRef.current = img;
-      tekenCanvas(img, cropBox);
+      tekenCanvas(img, { x: 40, y: 40, w: 280, h: 180 });
       setImgGeladen(true);
     };
     img.src = fotoUrl;
@@ -32,36 +31,25 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
     const ctx = canvas.getContext("2d");
     const W = canvas.width;
     const H = canvas.height;
-
     const schaalX = W / img.width;
     const schaalY = H / img.height;
     const s = Math.min(schaalX, schaalY);
     const ox = (W - img.width * s) / 2;
     const oy = (H - img.height * s) / 2;
-
     setSchaal(s);
     setImgOffset({ x: ox, y: oy });
-
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(img, ox, oy, img.width * s, img.height * s);
-
-    // Dimming
     ctx.fillStyle = "rgba(0,0,0,0.45)";
     ctx.fillRect(0, 0, W, H);
-
-    // Crop venster
     ctx.clearRect(crop.x, crop.y, crop.w, crop.h);
-    ctx.drawImage(img, 
+    ctx.drawImage(img,
       (crop.x - ox) / s, (crop.y - oy) / s, crop.w / s, crop.h / s,
       crop.x, crop.y, crop.w, crop.h
     );
-
-    // Rand
     ctx.strokeStyle = PINK;
     ctx.lineWidth = 2;
     ctx.strokeRect(crop.x, crop.y, crop.w, crop.h);
-
-    // Grid lijnen
     ctx.strokeStyle = "rgba(255,45,122,0.4)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -74,18 +62,10 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
     ctx.moveTo(crop.x, crop.y + crop.h * 2 / 3);
     ctx.lineTo(crop.x + crop.w, crop.y + crop.h * 2 / 3);
     ctx.stroke();
-
-    // Hoek grepen
-    const hoekGrootte = 18;
     ctx.fillStyle = PINK;
-    [
-      [crop.x, crop.y],
-      [crop.x + crop.w, crop.y],
-      [crop.x, crop.y + crop.h],
-      [crop.x + crop.w, crop.y + crop.h]
-    ].forEach(function(pt) {
+    [[crop.x, crop.y], [crop.x + crop.w, crop.y], [crop.x, crop.y + crop.h], [crop.x + crop.w, crop.y + crop.h]].forEach(function(pt) {
       ctx.beginPath();
-      ctx.arc(pt[0], pt[1], hoekGrootte / 2, 0, Math.PI * 2);
+      ctx.arc(pt[0], pt[1], 10, 0, Math.PI * 2);
       ctx.fill();
     });
   }
@@ -145,7 +125,6 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
     const H = canvas.height;
     const MIN = 60;
     var nieuwCrop = Object.assign({}, cropStart.current);
-
     if (actieveHoek) {
       if (actieveHoek === "lt") {
         nieuwCrop.x = Math.min(cropStart.current.x + dx, cropStart.current.x + cropStart.current.w - MIN);
@@ -168,12 +147,10 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
       nieuwCrop.x = Math.max(0, Math.min(W - cropStart.current.w, cropStart.current.x + dx));
       nieuwCrop.y = Math.max(0, Math.min(H - cropStart.current.h, cropStart.current.y + dy));
     }
-
     nieuwCrop.x = Math.max(0, nieuwCrop.x);
     nieuwCrop.y = Math.max(0, nieuwCrop.y);
     if (nieuwCrop.x + nieuwCrop.w > W) nieuwCrop.w = W - nieuwCrop.x;
     if (nieuwCrop.y + nieuwCrop.h > H) nieuwCrop.h = H - nieuwCrop.y;
-
     setCropBox(nieuwCrop);
     if (imgRef.current) tekenCanvas(imgRef.current, nieuwCrop);
   }
@@ -187,22 +164,18 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
 
   async function handleOpslaan() {
     setOpslaan(true);
-    const canvas = canvasRef.current;
     const img = imgRef.current;
     const s = schaal;
     const ox = imgOffset.x;
     const oy = imgOffset.y;
-
     const uitvoerCanvas = document.createElement("canvas");
     uitvoerCanvas.width = Math.round(cropBox.w / s);
     uitvoerCanvas.height = Math.round(cropBox.h / s);
     const ctx = uitvoerCanvas.getContext("2d");
     ctx.drawImage(img,
-      (cropBox.x - ox) / s, (cropBox.y - oy) / s,
-      cropBox.w / s, cropBox.h / s,
+      (cropBox.x - ox) / s, (cropBox.y - oy) / s, cropBox.w / s, cropBox.h / s,
       0, 0, uitvoerCanvas.width, uitvoerCanvas.height
     );
-
     uitvoerCanvas.toBlob(async function(blob) {
       await onOpslaan(blob);
       setOpslaan(false);
@@ -211,7 +184,6 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 500, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#111", flexShrink: 0 }}>
         <button onClick={onSluiten}
           style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 20, padding: "6px 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
@@ -223,9 +195,7 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
           {opslaan ? "..." : "Opslaan"}
         </button>
       </div>
-
-      {/* Canvas */}
-      <div ref={containerRef} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
         <canvas
           ref={canvasRef}
           width={360}
@@ -236,7 +206,6 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
           style={{ width: "100%", maxWidth: 360, borderRadius: 8, touchAction: "none" }}
         />
       </div>
-
       <div style={{ padding: "10px 16px 24px", textAlign: "center", color: "#666", fontSize: 11 }}>
         Sleep de hoeken om bij te snijden · Sleep binnen het vak om te verplaatsen
       </div>
