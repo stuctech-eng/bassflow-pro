@@ -21,13 +21,27 @@ useEffect(function() {
     tekenCanvas(img, { x: 40, y: 40, w: 280, h: 180 });
     setImgGeladen(true);
   };
-  // Laad via blob om CORS te omzeilen
-  fetch(fotoUrl)
+  img.onerror = function() {
+    // Probeer zonder fetch als fallback
+    const img2 = new Image();
+    img2.crossOrigin = "anonymous";
+    img2.onload = function() {
+      imgRef.current = img2;
+      tekenCanvas(img2, { x: 40, y: 40, w: 280, h: 180 });
+      setImgGeladen(true);
+    };
+    img2.src = fotoUrl + "?t=" + Date.now();
+  };
+  fetch(fotoUrl, { mode: "cors" })
     .then(function(r) { return r.blob(); })
     .then(function(blob) {
       img.src = URL.createObjectURL(blob);
+    })
+    .catch(function() {
+      img.src = fotoUrl;
     });
 }, [fotoUrl]);
+
 
 
   function tekenCanvas(img, crop) {
