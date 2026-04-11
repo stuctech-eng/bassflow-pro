@@ -77,15 +77,22 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
   }
 
   async function handleBijsnijdOpslaan(blob) {
-    const pad = "fotos/" + oefening.id + "/crop_" + Date.now() + ".jpg";
-    const storageRef = ref(storage, pad);
-    await uploadBytes(storageRef, blob);
-    const nieuweUrl = await getDownloadURL(storageRef);
-    const nieuweFotos = fotos.map(function(f, i) { return i === bijsnijdIndex ? nieuweUrl : f; });
-    setFotos(nieuweFotos);
-    await updateDoc(doc(db, "oefeningen", oefening.id), { fotos: nieuweFotos });
-    setBijsnijdFoto(null);
-    setBijsnijdIndex(null);
+    try {
+      const pad = "fotos/" + oefening.id + "/crop_" + Date.now() + ".jpg";
+      const storageRef = ref(storage, pad);
+      await uploadBytes(storageRef, blob);
+      const nieuweUrl = await getDownloadURL(storageRef);
+      const nieuweFotos = fotos.map(function(f, i) {
+        return i === bijsnijdIndex ? nieuweUrl : f;
+      });
+      setFotos(nieuweFotos);
+      await updateDoc(doc(db, "oefeningen", oefening.id), { fotos: nieuweFotos });
+    } catch (err) {
+      console.error("Upload fout:", err);
+    } finally {
+      setBijsnijdFoto(null);
+      setBijsnijdIndex(null);
+    }
   }
 
   async function handleAudioKies(e) {
