@@ -135,14 +135,45 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
     sleepStart.current = null;
   }
 
-  async function handleOpslaan() {
-    if (!imgAfm || opslaan) return;
-    setOpslaan(true);
-    try {
-      const img = imgRef.current;
-      const s = getSchaal();
-      const weergave = getImgWeergave();
-      const c = cropRef.current;
+ async function handleOpslaan() {
+  if (!imgAfm || opslaan) return;
+  setOpslaan(true);
+  try {
+    const s = getSchaal();
+    const weergave = getImgWeergave();
+    const c = cropRef.current;
+
+    const origX = Math.max(0, (c.x - weergave.ox) / s);
+    const origY = Math.max(0, (c.y - weergave.oy) / s);
+    const origW = Math.min(imgAfm.w - origX, c.w / s);
+    const origH = Math.min(imgAfm.h - origY, c.h / s);
+
+    // Haal foto op als blob om CORS te omzeilen
+    const response = await fetch(fotoUrl);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    const img = new Image();
+    img.onload = function() {
+      const uitvoer = document.createElement("canvas");
+      uitvoer.width = Math.round(origW);
+      uitvoer.height = Math.round(origH);
+      const ctx = uitvoer.getContext("2d");
+      ctx.drawImage(img, origX, origY, origW, origH, 0, 0, uitvoer.width, uitvoer.height);
+      URL.revokeObjectURL(blobUrl);
+      uitvoer.toBlob(async function(resultBlob) {
+        if (resultBlob) {
+          await onOpslaan(resultBlob);
+        }
+        setOpslaan(false);
+      }, "image/jpeg", 0.92);
+    };
+    img.src = blobUrl;
+  } catch (err) {
+    setOpslaan(false);
+  }
+}
+
 
       // Converteer scherm coordinaten naar originele foto coordinaten
       const origX = Math.max(0, (c.x - weergave.ox) / s);
