@@ -3,7 +3,9 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc } from "firebase/firestore";
 import { db, storage } from "../firebase.js";
 import { PINK, PINK_LIGHT, DARK, MODULES } from "../constants.js";
+
 import { verwerkFoto } from "../utils.js";
+import FotoBijsnijden from "./FotoBijsnijden.jsx";
 
 export default function OefeningFormulier({ oefening, onSave, onClose }) {
   const isNieuw = !oefening;
