@@ -7,6 +7,8 @@ import OefeningKaart from "./components/OefeningKaart.jsx";
 import OefeningFormulier from "./components/OefeningFormulier.jsx";
 import DetailScherm from "./components/DetailScherm.jsx";
 import ModuleScherm from "./components/ModuleScherm.jsx";
+import Badge from "./components/Badge.jsx";
+
 
 export default function App() {
   const [tab, setTab] = useState("home");
