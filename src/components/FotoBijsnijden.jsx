@@ -100,7 +100,6 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
     const s = cropStart.current;
     const MIN = 50;
     var c = Object.assign({}, s);
-
     if (actiefRef.current === "sleep") {
       c.x = Math.max(0, Math.min(SCHERM_B - s.w, s.x + dx));
       c.y = Math.max(0, Math.min(SCHERM_H - s.h, s.y + dy));
@@ -123,7 +122,6 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
       c.w = Math.max(MIN, Math.min(s.w + dx, SCHERM_B - s.x));
       c.h = Math.max(MIN, Math.min(s.h + dy, SCHERM_H - s.y));
     }
-
     cropRef.current = c;
     setCrop(Object.assign({}, c));
   }
@@ -135,59 +133,34 @@ export default function FotoBijsnijden({ fotoUrl, onOpslaan, onSluiten }) {
     sleepStart.current = null;
   }
 
-async function handleOpslaan() {
-  if (!imgAfm || opslaan) return;
-  setOpslaan(true);
-  try {
-    const s = getSchaal();
-    const weergave = getImgWeergave();
-    const c = cropRef.current;
-    const origX = Math.max(0, (c.x - weergave.ox) / s);
-    const origY = Math.max(0, (c.y - weergave.oy) / s);
-    const origW = Math.min(imgAfm.w - origX, c.w / s);
-    const origH = Math.min(imgAfm.h - origY, c.h / s);
-    const response = await fetch(fotoUrl);
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = function() {
-      const uitvoer = document.createElement("canvas");
-      uitvoer.width = Math.round(origW);
-      uitvoer.height = Math.round(origH);
-      const ctx = uitvoer.getContext("2d");
-      ctx.drawImage(img, origX, origY, origW, origH, 0, 0, uitvoer.width, uitvoer.height);
-      URL.revokeObjectURL(blobUrl);
-      uitvoer.toBlob(async function(resultBlob) {
-        if (resultBlob) { await onOpslaan(resultBlob); }
-        setOpslaan(false);
-      }, "image/jpeg", 0.92);
-    };
-    img.src = blobUrl;
-  } catch (err) {
-    setOpslaan(false);
-  }
-}
-
-
-      // Converteer scherm coordinaten naar originele foto coordinaten
+  async function handleOpslaan() {
+    if (!imgAfm || opslaan) return;
+    setOpslaan(true);
+    try {
+      const s = getSchaal();
+      const weergave = getImgWeergave();
+      const c = cropRef.current;
       const origX = Math.max(0, (c.x - weergave.ox) / s);
       const origY = Math.max(0, (c.y - weergave.oy) / s);
       const origW = Math.min(imgAfm.w - origX, c.w / s);
       const origH = Math.min(imgAfm.h - origY, c.h / s);
-
-      const uitvoer = document.createElement("canvas");
-      uitvoer.width = Math.round(origW);
-      uitvoer.height = Math.round(origH);
-      const ctx = uitvoer.getContext("2d");
-      ctx.drawImage(img, origX, origY, origW, origH, 0, 0, uitvoer.width, uitvoer.height);
-
-      uitvoer.toBlob(async function(blob) {
-        if (blob) {
-          await onOpslaan(blob);
-        } else {
+      const response = await fetch(fotoUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = function() {
+        const uitvoer = document.createElement("canvas");
+        uitvoer.width = Math.round(origW);
+        uitvoer.height = Math.round(origH);
+        const ctx = uitvoer.getContext("2d");
+        ctx.drawImage(img, origX, origY, origW, origH, 0, 0, uitvoer.width, uitvoer.height);
+        URL.revokeObjectURL(blobUrl);
+        uitvoer.toBlob(async function(resultBlob) {
+          if (resultBlob) { await onOpslaan(resultBlob); }
           setOpslaan(false);
-        }
-      }, "image/jpeg", 0.92);
+        }, "image/jpeg", 0.92);
+      };
+      img.src = blobUrl;
     } catch (err) {
       setOpslaan(false);
     }
@@ -198,8 +171,6 @@ async function handleOpslaan() {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 500, display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
-
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "52px 16px 12px", background: "#111", flexShrink: 0 }}>
         <button onClick={onSluiten}
           style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 20, padding: "8px 16px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
@@ -211,58 +182,31 @@ async function handleOpslaan() {
           {opslaan ? "Bezig..." : "Bewaar"}
         </button>
       </div>
-
-      {/* Viewer */}
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div
           ref={containerRef}
           onTouchStart={handleStart}
           onTouchMove={handleMove}
           onTouchEnd={handleEnd}
-          style={{
-            position: "relative",
-            width: SCHERM_B,
-            height: SCHERM_H,
-            background: "#000",
-            touchAction: "none",
-            overflow: "hidden"
-          }}>
-
-          {/* Foto */}
+          style={{ position: "relative", width: SCHERM_B, height: SCHERM_H, background: "#000", touchAction: "none", overflow: "hidden" }}>
           {imgAfm ? (
             <img src={fotoUrl} alt="foto"
-              style={{
-                position: "absolute",
-                left: weergave.ox,
-                top: weergave.oy,
-                width: weergave.w,
-                height: weergave.h,
-                userSelect: "none",
-                WebkitUserSelect: "none",
-                pointerEvents: "none"
-              }} />
+              style={{ position: "absolute", left: weergave.ox, top: weergave.oy, width: weergave.w, height: weergave.h, userSelect: "none", WebkitUserSelect: "none", pointerEvents: "none" }} />
           ) : (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#444", fontSize: 12 }}>Laden...</div>
           )}
-
-          {/* Dimming lagen */}
           {imgAfm ? (
             <>
               <div style={{ position: "absolute", left: 0, top: 0, width: SCHERM_B, height: c.y, background: "rgba(0,0,0,0.55)", pointerEvents: "none" }} />
               <div style={{ position: "absolute", left: 0, top: c.y + c.h, width: SCHERM_B, height: SCHERM_H - c.y - c.h, background: "rgba(0,0,0,0.55)", pointerEvents: "none" }} />
               <div style={{ position: "absolute", left: 0, top: c.y, width: c.x, height: c.h, background: "rgba(0,0,0,0.55)", pointerEvents: "none" }} />
               <div style={{ position: "absolute", left: c.x + c.w, top: c.y, width: SCHERM_B - c.x - c.w, height: c.h, background: "rgba(0,0,0,0.55)", pointerEvents: "none" }} />
-
-              {/* Crop rand */}
               <div style={{ position: "absolute", left: c.x, top: c.y, width: c.w, height: c.h, border: "2px solid " + PINK, boxSizing: "border-box", pointerEvents: "none" }}>
-                {/* Grid */}
                 <div style={{ position: "absolute", left: "33%", top: 0, width: 1, height: "100%", background: "rgba(255,45,122,0.35)" }} />
                 <div style={{ position: "absolute", left: "66%", top: 0, width: 1, height: "100%", background: "rgba(255,45,122,0.35)" }} />
                 <div style={{ position: "absolute", top: "33%", left: 0, height: 1, width: "100%", background: "rgba(255,45,122,0.35)" }} />
                 <div style={{ position: "absolute", top: "66%", left: 0, height: 1, width: "100%", background: "rgba(255,45,122,0.35)" }} />
               </div>
-
-              {/* Hoek grepen */}
               {[
                 { naam: "lt", left: c.x - 11, top: c.y - 11 },
                 { naam: "rt", left: c.x + c.w - 11, top: c.y - 11 },
@@ -270,18 +214,13 @@ async function handleOpslaan() {
                 { naam: "rb", left: c.x + c.w - 11, top: c.y + c.h - 11 }
               ].map(function(h) {
                 return (
-                  <div key={h.naam} style={{
-                    position: "absolute", left: h.left, top: h.top,
-                    width: 22, height: 22, borderRadius: "50%",
-                    background: PINK, pointerEvents: "none"
-                  }} />
+                  <div key={h.naam} style={{ position: "absolute", left: h.left, top: h.top, width: 22, height: 22, borderRadius: "50%", background: PINK, pointerEvents: "none" }} />
                 );
               })}
             </>
           ) : null}
         </div>
       </div>
-
       <div style={{ padding: "10px 16px 40px", textAlign: "center", color: "#666", fontSize: 11 }}>
         Sleep hoeken om bij te snijden · Sleep midden om te verplaatsen
       </div>
