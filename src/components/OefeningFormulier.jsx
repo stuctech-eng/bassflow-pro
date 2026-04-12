@@ -25,6 +25,8 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
   const invoerRef = useRef();
   const audioRef = useRef();
 
+  const ANALYSE_URL = "https://analyseertablature-dia7q5dlaq-uc.a.run.app";
+
   async function handleFotoKies(e) {
     if (!oefening) return;
     const bestanden = Array.from(e.target.files);
@@ -102,7 +104,7 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
     setAnalyseBezig(true);
     setAnalyseStatus("Bezig met analyseren van " + fotos.length + " foto" + (fotos.length > 1 ? "'s" : "") + "...");
     try {
-      const response = await fetch("https://us-central1-bassflow-pro.cloudfunctions.net/analyseerTablature", {
+      const response = await fetch(ANALYSE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fotoUrls: fotos, titel: titel })
@@ -207,7 +209,6 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
                 </div>
               ) : null}
 
-              {/* AI Analyse knop */}
               {fotos.length > 0 ? (
                 <div style={{ marginBottom: 10 }}>
                   <button onClick={handleAnalyseer} disabled={analyseBezig}
