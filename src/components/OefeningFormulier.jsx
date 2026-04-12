@@ -20,6 +20,8 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
   const [drempel, setDrempel] = useState(160);
   const [bijsnijdFoto, setBijsnijdFoto] = useState(null);
   const [bijsnijdIndex, setBijsnijdIndex] = useState(null);
+  const [analyseBezig, setAnalyseBezig] = useState(false);
+  const [analyseStatus, setAnalyseStatus] = useState("");
   const invoerRef = useRef();
   const audioRef = useRef();
 
@@ -93,6 +95,30 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
       setBijsnijdFoto(null);
       setBijsnijdIndex(null);
     }
+  }
+
+  async function handleAnalyseer() {
+    if (!oefening || fotos.length === 0) return;
+    setAnalyseBezig(true);
+    setAnalyseStatus("Bezig met analyseren van " + fotos.length + " foto" + (fotos.length > 1 ? "'s" : "") + "...");
+    try {
+      const response = await fetch("https://us-central1-bassflow-pro.cloudfunctions.net/analyseerTablature", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fotoUrls: fotos, titel: titel })
+      });
+      const data = await response.json();
+      if (data.success) {
+        await updateDoc(doc(db, "oefeningen", oefening.id), { info: data.analyse });
+        setAnalyseStatus("✓ Analyse opgeslagen in Info blok!");
+        setTimeout(function() { setAnalyseStatus(""); }, 3000);
+      } else {
+        setAnalyseStatus("Fout bij analyse. Probeer opnieuw.");
+      }
+    } catch (err) {
+      setAnalyseStatus("Fout bij analyse. Probeer opnieuw.");
+    }
+    setAnalyseBezig(false);
   }
 
   async function handleAudioKies(e) {
@@ -178,6 +204,21 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
                     onChange={function(e) { setDrempel(Number(e.target.value)); }}
                     style={{ width: "100%", accentColor: PINK }} />
                   <div style={{ fontSize: 9, color: "#bbb", marginTop: 2 }}>Lager = meer zwart · Hoger = meer wit</div>
+                </div>
+              ) : null}
+
+              {/* AI Analyse knop */}
+              {fotos.length > 0 ? (
+                <div style={{ marginBottom: 10 }}>
+                  <button onClick={handleAnalyseer} disabled={analyseBezig}
+                    style={{ width: "100%", background: analyseBezig ? "#eee" : "#8B2FC9", color: analyseBezig ? "#bbb" : "#fff", border: "none", borderRadius: 10, padding: "11px", fontSize: 12, fontWeight: 800, cursor: analyseBezig ? "default" : "pointer" }}>
+                    {analyseBezig ? "🤖 Analyseren..." : "🤖 Analyseer alle foto's met AI"}
+                  </button>
+                  {analyseStatus ? (
+                    <div style={{ marginTop: 6, fontSize: 11, color: analyseStatus.startsWith("✓") ? "#00B84C" : analyseStatus.startsWith("Fout") ? "#E53935" : "#888", textAlign: "center", fontWeight: 600 }}>
+                      {analyseStatus}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
