@@ -31,6 +31,14 @@ export default function App() {
   }, []);
 
   async function handleSave(id, data) {
+  if (id) {
+    await updateDoc(doc(db, "oefeningen", id), data);
+  } else {
+    await addDoc(collection(db, "oefeningen"), data);
+  }
+  await laadOefeningen();
+}
+
     if (id) { await updateDoc(doc(db, "oefeningen", id), data); }
     else { await addDoc(collection(db, "oefeningen"), data); }
   }
@@ -108,7 +116,7 @@ export default function App() {
           <div>
             <span style={{ color: PINK, fontWeight: 800, fontSize: 19 }}>BASS</span>
             <span style={{ color: DARK, fontWeight: 800, fontSize: 19 }}>FLOW</span>
-            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.30</span>
+            <span style={{ fontSize: 9, color: "#ccc", marginLeft: 6 }}>PRO v0.31</span>
           </div>
           <div style={{ fontSize: 9, color: "#bbb", fontWeight: 700 }}>{today}</div>
         </div>
