@@ -31,6 +31,7 @@ export default function App() {
   }, []);
 
   async function handleSave(id, data) {
+
   if (id) {
     await updateDoc(doc(db, "oefeningen", id), data);
   } else {
@@ -38,10 +39,6 @@ export default function App() {
   }
   await laadOefeningen();
 }
-
-    if (id) { await updateDoc(doc(db, "oefeningen", id), data); }
-    else { await addDoc(collection(db, "oefeningen"), data); }
-  }
 
   async function handleDelete(id) { await deleteDoc(doc(db, "oefeningen", id)); }
 
