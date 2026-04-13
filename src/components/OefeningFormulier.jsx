@@ -24,8 +24,10 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
   const [analyseStatus, setAnalyseStatus] = useState("");
   const [conceptId, setConceptId] = useState(null);
   const [info, setInfo] = useState(oefening ? (oefening.info || "") : "");
+  const [infoFotoBezig, setInfoFotoBezig] = useState(false);
   const invoerRef = useRef();
   const audioRef = useRef();
+  const infoFotoRef = useRef();
 
   const ANALYSE_URL = "https://analyseertablature-dia7q5dlaq-uc.a.run.app";
 
@@ -36,12 +38,8 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
   async function maakConceptAan() {
     if (oefening || conceptId) return oefening ? oefening.id : conceptId;
     const docRef = await addDoc(collection(db, "oefeningen"), {
-      titel: titel || "Nieuw",
-      moduleId, bpm,
-      fotos: [],
-      sessies: [],
-      info: "",
-      audioUrl: "",
+      titel: titel || "Nieuw", moduleId, bpm,
+      fotos: [], sessies: [], info: "", audioUrl: "",
       datum: new Date().toISOString(),
       bijgewerkt: new Date().toISOString(),
       concept: true
@@ -113,9 +111,7 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
       const storageRef = ref(storage, pad);
       await uploadBytes(storageRef, blob);
       const nieuweUrl = await getDownloadURL(storageRef);
-      const nieuweFotos = fotos.map(function(f, i) {
-        return i === bijsnijdIndex ? nieuweUrl : f;
-      });
+      const nieuweFotos = fotos.map(function(f, i) { return i === bijsnijdIndex ? nieuweUrl : f; });
       setFotos(nieuweFotos);
       await updateDoc(doc(db, "oefeningen", id), { fotos: nieuweFotos });
     } catch (err) {
@@ -135,13 +131,12 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
       const response = await fetch(ANALYSE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fotoUrls: fotos, titel: titel })
+        body: JSON.stringify({ fotoUrls: fotos, titel: titel, modus: "analyse" })
       });
       const data = await response.json();
       if (data.success) {
         setInfo(data.analyse);
-        const id2 = getOefeningId();
-        if (id2) await updateDoc(doc(db, "oefeningen", id2), { info: data.analyse });
+        if (id) await updateDoc(doc(db, "oefeningen", id), { info: data.analyse });
         setAnalyseStatus("✓ Analyse opgeslagen!");
         setTimeout(function() { setAnalyseStatus(""); }, 3000);
       } else {
@@ -151,6 +146,64 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
       setAnalyseStatus("Fout bij analyse. Probeer opnieuw.");
     }
     setAnalyseBezig(false);
+  }
+
+  async function handleInfoFotoKies(e) {
+    const bestand = e.target.files[0];
+    if (!bestand) return;
+    setInfoFotoBezig(true);
+    setAnalyseStatus("Foto analyseren...");
+    try {
+      const id = await maakConceptAan();
+      const pad = "fotos/" + id + "/info_" + Date.now() + ".jpg";
+      const storageRef = ref(storage, pad);
+      await uploadBytes(storageRef, bestand);
+      const fotoUrl = await getDownloadURL(storageRef);
+      const response = await fetch(ANALYSE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fotoUrls: [fotoUrl], modus: "infofoto" })
+      });
+      const data = await response.json();
+      if (data.success) {
+        const nieuweInfo = info ? info + "\n\n" + data.analyse : data.analyse;
+        setInfo(nieuweInfo);
+        if (id) await updateDoc(doc(db, "oefeningen", id), { info: nieuweInfo });
+        setAnalyseStatus("✓ Tekst geïmporteerd!");
+        setTimeout(function() { setAnalyseStatus(""); }, 3000);
+      } else {
+        setAnalyseStatus("Fout. Probeer opnieuw.");
+      }
+    } catch (err) {
+      setAnalyseStatus("Fout. Probeer opnieuw.");
+    }
+    setInfoFotoBezig(false);
+  }
+
+  async function handleVertaalInfo() {
+    if (!info.trim()) return;
+    setInfoFotoBezig(true);
+    setAnalyseStatus("Vertalen...");
+    try {
+      const response = await fetch(ANALYSE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tekst: info, modus: "vertaal" })
+      });
+      const data = await response.json();
+      if (data.success) {
+        const id = getOefeningId();
+        setInfo(data.analyse);
+        if (id) await updateDoc(doc(db, "oefeningen", id), { info: data.analyse });
+        setAnalyseStatus("✓ Vertaald!");
+        setTimeout(function() { setAnalyseStatus(""); }, 3000);
+      } else {
+        setAnalyseStatus("Fout. Probeer opnieuw.");
+      }
+    } catch (err) {
+      setAnalyseStatus("Fout. Probeer opnieuw.");
+    }
+    setInfoFotoBezig(false);
   }
 
   async function handleAudioKies(e) {
@@ -250,13 +303,8 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
             <div style={{ marginBottom: 10 }}>
               <button onClick={handleAnalyseer} disabled={analyseBezig}
                 style={{ width: "100%", background: analyseBezig ? "#eee" : "#8B2FC9", color: analyseBezig ? "#bbb" : "#fff", border: "none", borderRadius: 10, padding: "11px", fontSize: 12, fontWeight: 800, cursor: analyseBezig ? "default" : "pointer" }}>
-                {analyseBezig ? "🤖 Analyseren..." : "🤖 Analyseer alle foto's met AI"}
+                {analyseBezig ? "🤖 Analyseren..." : "🤖 Analyseer tablature foto's met AI"}
               </button>
-              {analyseStatus ? (
-                <div style={{ marginTop: 6, fontSize: 11, color: analyseStatus.startsWith("✓") ? "#00B84C" : analyseStatus.startsWith("Fout") ? "#E53935" : "#888", textAlign: "center", fontWeight: 600 }}>
-                  {analyseStatus}
-                </div>
-              ) : null}
             </div>
           ) : null}
 
@@ -323,9 +371,27 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 6 }}>INFO / NOTITIES</label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: "#888" }}>INFO / NOTITIES</label>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={function() { infoFotoRef.current.click(); }} disabled={infoFotoBezig}
+                style={{ background: PINK_LIGHT, color: PINK, border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                📸 Foto
+              </button>
+              <button onClick={handleVertaalInfo} disabled={infoFotoBezig || !info.trim()}
+                style={{ background: "#E8F4FD", color: "#1976D2", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                🌐 Vertaal
+              </button>
+            </div>
+            <input ref={infoFotoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleInfoFotoKies} />
+          </div>
+          {analyseStatus ? (
+            <div style={{ marginBottom: 6, fontSize: 11, color: analyseStatus.startsWith("✓") ? "#00B84C" : analyseStatus.startsWith("Fout") ? "#E53935" : "#888", textAlign: "center", fontWeight: 600 }}>
+              {analyseStatus}
+            </div>
+          ) : null}
           <textarea value={info} onChange={function(e) { setInfo(e.target.value); }}
-            placeholder="Voeg notities, beschrijving of tekst toe..."
+            placeholder="Voeg notities toe, importeer via foto of vertaal tekst..."
             rows={5}
             style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", resize: "none", boxSizing: "border-box", lineHeight: 1.6, color: DARK }} />
         </div>
