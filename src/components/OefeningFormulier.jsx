@@ -23,6 +23,7 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
   const [analyseBezig, setAnalyseBezig] = useState(false);
   const [analyseStatus, setAnalyseStatus] = useState("");
   const [conceptId, setConceptId] = useState(null);
+  const [info, setInfo] = useState(oefening ? (oefening.info || "") : "");
   const invoerRef = useRef();
   const audioRef = useRef();
 
@@ -33,7 +34,7 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
   }
 
   async function maakConceptAan() {
-    if (oefening || conceptId) return conceptId;
+    if (oefening || conceptId) return oefening ? oefening.id : conceptId;
     const docRef = await addDoc(collection(db, "oefeningen"), {
       titel: titel || "Nieuw",
       moduleId, bpm,
@@ -138,7 +139,9 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
       });
       const data = await response.json();
       if (data.success) {
-        await updateDoc(doc(db, "oefeningen", id), { info: data.analyse });
+        setInfo(data.analyse);
+        const id2 = getOefeningId();
+        if (id2) await updateDoc(doc(db, "oefeningen", id2), { info: data.analyse });
         setAnalyseStatus("✓ Analyse opgeslagen!");
         setTimeout(function() { setAnalyseStatus(""); }, 3000);
       } else {
@@ -171,7 +174,7 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
     const data = {
       titel, moduleId, bpm, fotos,
       sessies: oefening ? (oefening.sessies || []) : [],
-      info: oefening ? (oefening.info || "") : "",
+      info: info,
       audioUrl,
       datum: oefening ? oefening.datum : new Date().toISOString(),
       bijgewerkt: new Date().toISOString(),
@@ -184,7 +187,7 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
 
   async function handleAnnuleer() {
     if (conceptId) {
-      await deleteDoc(doc(db, "oefeningen", conceptId));
+      try { await deleteDoc(doc(db, "oefeningen", conceptId)); } catch(e) {}
     }
     onClose();
   }
@@ -307,7 +310,7 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
           {audioUrl ? (
             <div style={{ background: "#fafafa", borderRadius: 10, padding: 10 }}>
               <audio controls src={audioUrl} style={{ width: "100%", height: 32 }} />
-              <button onClick={function() { setAudioUrl(""); if (getOefeningId()) updateDoc(doc(db, "oefeningen", getOefeningId()), { audioUrl: "" }); }}
+              <button onClick={function() { setAudioUrl(""); const id = getOefeningId(); if (id) updateDoc(doc(db, "oefeningen", id), { audioUrl: "" }); }}
                 style={{ marginTop: 6, background: "#FFF0F0", color: "#E53935", border: "none", borderRadius: 8, padding: "5px 10px", fontSize: 11, cursor: "pointer", width: "100%" }}>
                 Audio verwijderen
               </button>
@@ -317,6 +320,14 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
               Geen audio gekoppeld
             </div>
           )}
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 6 }}>INFO / NOTITIES</label>
+          <textarea value={info} onChange={function(e) { setInfo(e.target.value); }}
+            placeholder="Voeg notities, beschrijving of tekst toe..."
+            rows={5}
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", resize: "none", boxSizing: "border-box", lineHeight: 1.6, color: DARK }} />
         </div>
 
         <button onClick={handleSave} disabled={opslaan}
