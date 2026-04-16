@@ -2,8 +2,9 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>BassFlow Editor</title>
+
   <style>
     body {
       margin: 0;
@@ -11,6 +12,7 @@
       color: white;
       font-family: sans-serif;
       text-align: center;
+      overflow: hidden;
     }
 
     canvas {
@@ -34,6 +36,7 @@ canvas.height = 200;
 
 let notes = [];
 let ghost = null;
+let isTouching = false;
 
 // staff
 function drawStaff() {
@@ -73,7 +76,7 @@ function drawNotes() {
   });
 }
 
-// ghost note
+// ghost
 function drawGhost() {
   if (!ghost) return;
 
@@ -83,16 +86,28 @@ function drawGhost() {
   ctx.fill();
 }
 
-// redraw
-function draw() {
+// redraw loop (smooth!)
+function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawStaff();
   drawNotes();
   drawGhost();
+  requestAnimationFrame(loop);
 }
+loop();
 
-// touch move (ghost)
+// touch start
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  isTouching = true;
+});
+
+// touch move
 canvas.addEventListener("touchmove", (e) => {
+  e.preventDefault();
+
+  if (!isTouching) return;
+
   const rect = canvas.getBoundingClientRect();
   const touch = e.touches[0];
 
@@ -106,21 +121,21 @@ canvas.addEventListener("touchmove", (e) => {
     y: snapped.y,
     note: snapped.note
   };
-
-  draw();
 });
 
-// touch end (plaats noot)
-canvas.addEventListener("touchend", () => {
+// touch end
+canvas.addEventListener("touchend", (e) => {
+  e.preventDefault();
+
   if (ghost) {
     notes.push(ghost);
     ghost = null;
-    draw();
-    console.log(notes);
   }
+
+  isTouching = false;
 });
 
-// klik fallback
+// click fallback
 canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
 
@@ -134,11 +149,7 @@ canvas.addEventListener("click", (e) => {
     y: snapped.y,
     note: snapped.note
   });
-
-  draw();
 });
-
-draw();
 </script>
 
 </body>
