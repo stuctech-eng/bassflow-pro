@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>BassFlow Editor Test</title>
+  <title>BassFlow Editor</title>
   <style>
     body {
       margin: 0;
@@ -22,7 +22,7 @@
 </head>
 <body>
 
-<h3>BassFlow - Touch Test</h3>
+<h3>BassFlow - Editor</h3>
 <canvas id="canvas"></canvas>
 
 <script>
@@ -33,8 +33,9 @@ canvas.width = window.innerWidth;
 canvas.height = 200;
 
 let notes = [];
+let ghost = null;
 
-// teken balk
+// staff
 function drawStaff() {
   ctx.strokeStyle = "white";
   for (let i = 0; i < 5; i++) {
@@ -46,7 +47,7 @@ function drawStaff() {
   }
 }
 
-// mapping Y → noot
+// mapping
 function getNote(y) {
   const map = [
     { y: 60, note: "F5" },
@@ -57,23 +58,29 @@ function getNote(y) {
     { y: 135, note: "C4" }
   ];
 
-  let closest = map.reduce((a, b) =>
+  return map.reduce((a, b) =>
     Math.abs(b.y - y) < Math.abs(a.y - y) ? b : a
   );
-
-  return closest;
 }
 
-// teken noten
+// draw notes
 function drawNotes() {
   notes.forEach(n => {
     ctx.beginPath();
     ctx.arc(n.x, n.y, 6, 0, Math.PI * 2);
     ctx.fillStyle = "white";
     ctx.fill();
-
-    ctx.fillText(n.note, n.x - 10, n.y - 10);
   });
+}
+
+// ghost note
+function drawGhost() {
+  if (!ghost) return;
+
+  ctx.beginPath();
+  ctx.arc(ghost.x, ghost.y, 6, 0, Math.PI * 2);
+  ctx.fillStyle = "gray";
+  ctx.fill();
 }
 
 // redraw
@@ -81,10 +88,11 @@ function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawStaff();
   drawNotes();
+  drawGhost();
 }
 
-// touch
-canvas.addEventListener("touchstart", (e) => {
+// touch move (ghost)
+canvas.addEventListener("touchmove", (e) => {
   const rect = canvas.getBoundingClientRect();
   const touch = e.touches[0];
 
@@ -93,18 +101,26 @@ canvas.addEventListener("touchstart", (e) => {
 
   const snapped = getNote(y);
 
-  notes.push({
+  ghost = {
     x: x,
     y: snapped.y,
     note: snapped.note
-  });
+  };
 
   draw();
-
-  console.log(notes);
 });
 
-// klik (desktop test)
+// touch end (plaats noot)
+canvas.addEventListener("touchend", () => {
+  if (ghost) {
+    notes.push(ghost);
+    ghost = null;
+    draw();
+    console.log(notes);
+  }
+});
+
+// klik fallback
 canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
 
