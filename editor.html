@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>BassFlow Pro - TAB Edition</title>
+  <title>BassFlow Pro - OMR & TAB</title>
   <style>
     body { margin: 0; background: #0d0d0d; color: white; font-family: sans-serif; text-align: center; overflow: hidden; overscroll-behavior-y: contain; }
     h3 { margin: 10px 0; color: #00d4ff; text-transform: uppercase; letter-spacing: 2px; font-size: 16px; }
-    canvas { background: #151515; display: block; margin: 0 auto; touch-action: none; border-bottom: 2px solid #333; }
-    .controls { margin-top: 10px; display: flex; justify-content: center; gap: 10px; }
-    button { background: #222; color: #00d4ff; border: 1px solid #00d4ff; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-    button:active { background: #00d4ff; color: black; }
+    canvas { background: #151515; display: block; margin: 0 auto; touch-action: none; border-bottom: 2px solid #333; cursor: crosshair; }
+    .controls { margin-top: 10px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 0 10px; }
+    button, label { background: #222; color: #00d4ff; border: 1px solid #00d4ff; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; }
+    button:active, label:active { background: #00d4ff; color: black; }
+    input[type="file"] { display: none; }
   </style>
 </head>
 <body>
@@ -21,13 +22,14 @@
 <div class="controls">
   <button onclick="clearNotes()">CLEAR</button>
   <button id="playBtn" onclick="togglePlayback()">PLAY</button>
+  <label for="omr-upload">📷 OMR IMPORT</label>
+  <input type="file" id="omr-upload" accept="image/*">
+  <button onclick="adjustOpacity()">DIM IMAGE</button>
 </div>
 
 <script>
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let isPlaying = false;
-let currentBeat = 0;
-let playbackInterval;
+let isPlaying = false, currentBeat = 0, playbackInterval, omrImage = null, omrOpacity = 0.4;
 
 const frequencies = {
   "g/3": 196.00, "f/3": 174.61, "e/3": 164.81, "d/3": 146.83, "c/3": 130.81,
@@ -36,7 +38,6 @@ const frequencies = {
   "f/1": 43.65, "e/1": 41.20
 };
 
-// Eenvoudige mapping van noot naar TAB (Snaar: Fret)
 const tabMap = {
   "g/3": {s:1, f:12}, "f/3": {s:1, f:10}, "e/3": {s:1, f:9}, "d/3": {s:1, f:7}, "c/3": {s:1, f:5},
   "b/2": {s:1, f:4}, "a/2": {s:1, f:2}, "g/2": {s:1, f:0}, "f/2": {s:2, f:3}, "e/2": {s:2, f:2},
@@ -44,6 +45,71 @@ const tabMap = {
   "f/1": {s:4, f:1}, "e/1": {s:4, f:0}
 };
 
+const canvas = document.getElementById("canvas"), ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth; canvas.height = 480;
+
+let notes = [], ghost = null, isTouching = false;
+const step = 14, staffTop = 80, tabTop = 280, beatWidth = 55, startMargin = 85;
+const noteMap = ["g/3","f/3","e/3","d/3","c/3","b/2","a/2","g/2","f/2","e/2","d/2","c/2","b/1","a/1","g/1","f/1","e/1"];
+
+// --- OMR LOGICA ---
+document.getElementById('omr-upload').addEventListener('change', function(e) {
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    omrImage = new Image();
+    omrImage.onload = () => { loop(); };
+    omrImage.src = event.target.result;
+  };
+  reader.readAsDataURL(e.target.files[0]);
+});
+
+function adjustOpacity() { omrOpacity = omrOpacity < 0.2 ? 0.7 : omrOpacity - 0.2; }
+
+function drawStaff() {
+  // 1. Teken OMR Image op de achtergrond
+  if (omrImage) {
+    ctx.save();
+    ctx.globalAlpha = omrOpacity;
+    // Schaal afbeelding naar breedte van canvas
+    const ratio = omrImage.height / omrImage.width;
+    ctx.drawImage(omrImage, 0, 20, canvas.width, canvas.width * ratio);
+    ctx.restore();
+  }
+
+  // 2. Verticale Grid Lijnen (Ritmische slots) - NU LICHTER (#444)
+  ctx.strokeStyle = "#444";
+  ctx.lineWidth = 1;
+  for (let b = 0; b < 24; b++) {
+    let x = startMargin + (b * beatWidth);
+    // Maatstreep om de 4 beats
+    ctx.strokeStyle = (b % 4 === 0) ? "#888" : "#333";
+    ctx.beginPath(); ctx.moveTo(x, 40); ctx.lineTo(x, 400); ctx.stroke();
+  }
+
+  // 3. Notenbalk (F-sleutel)
+  ctx.strokeStyle = "#aaa";
+  [5, 7, 9, 11, 13].forEach(index => {
+    let y = staffTop + (index * (step / 2));
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  });
+
+  // 4. TAB Balk
+  ctx.strokeStyle = "#555";
+  [0, 1, 2, 3].forEach(i => {
+    let y = tabTop + (i * 20);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  });
+
+  // 5. Cursor
+  if (isPlaying) {
+    ctx.strokeStyle = "#00d4ff"; ctx.lineWidth = 3;
+    const x = startMargin + (currentBeat * beatWidth);
+    ctx.beginPath(); ctx.moveTo(x, 40); ctx.lineTo(x, 400); ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+}
+
+// ... (Rest van de functies zoals playBassTone, drawNotes, drawLedgerLines blijven hetzelfde) ...
 function playBassTone(noteName) {
   if (!frequencies[noteName]) return;
   const osc = audioCtx.createOscillator();
@@ -56,119 +122,47 @@ function playBassTone(noteName) {
   osc.start(); osc.stop(audioCtx.currentTime + 0.5);
 }
 
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = 450; // Hoger gemaakt voor TAB
-
-let notes = []; 
-let ghost = null;
-let isTouching = false;
-
-const step = 14; 
-const staffTop = 70;
-const tabTop = 250; // Positie van de TAB
-const beatWidth = 55; 
-const startMargin = 85; 
-
-const noteMap = ["g/3","f/3","e/3","d/3","c/3","b/2","a/2","g/2","f/2","e/2","d/2","c/2","b/1","a/1","g/1","f/1","e/1"];
-const staffLineIndexes = [5, 7, 9, 11, 13]; 
-const tabLineIndexes = [0, 1, 2, 3]; // 4 snaren
-
-function drawStaff() {
-  // Verticale grid
-  ctx.strokeStyle = "#222";
-  for (let b = 0; b < 24; b++) {
-    let x = startMargin + (b * beatWidth);
-    ctx.beginPath(); ctx.moveTo(x, 20); ctx.lineTo(x, 400); ctx.stroke();
-  }
-
-  // Notenbalk
-  ctx.strokeStyle = "#666";
-  staffLineIndexes.forEach(index => {
-    let y = staffTop + (index * (step / 2));
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-  });
-
-  // TAB Balk
-  ctx.strokeStyle = "#444";
-  tabLineIndexes.forEach(i => {
-    let y = tabTop + (i * 20);
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-  });
-  ctx.fillStyle = "#666";
-  ctx.font = "bold 14px Arial";
-  ctx.fillText("TAB", 20, tabTop + 35);
-
-  // Sync Fix: Cursor tekenen
-  if (isPlaying) {
-    ctx.strokeStyle = "#00d4ff"; ctx.lineWidth = 2;
-    const x = startMargin + (currentBeat * beatWidth);
-    ctx.beginPath(); ctx.moveTo(x, 30); ctx.lineTo(x, 400); ctx.stroke();
-  }
-}
-
 function drawNotes() {
   notes.forEach(n => {
-    // Teken Noot
     drawLedgerLines(n.x, n.index);
     ctx.beginPath(); ctx.ellipse(n.x, n.y, 7, 5, -0.7, 0, 7);
     ctx.fillStyle = "white"; ctx.fill();
-    ctx.beginPath(); ctx.lineWidth = 1.5; ctx.strokeStyle = "white";
+    ctx.beginPath(); ctx.lineWidth = 2; ctx.strokeStyle = "white";
     if (n.index <= 9) { ctx.moveTo(n.x - 6, n.y); ctx.lineTo(n.x - 6, n.y + 35); }
     else { ctx.moveTo(n.x + 6, n.y); ctx.lineTo(n.x + 6, n.y - 35); }
     ctx.stroke();
 
-    // Teken TAB nummer
     const tab = tabMap[n.note];
     if (tab) {
         const tabY = tabTop + ((tab.s - 1) * 20);
-        ctx.fillStyle = "#151515";
-        ctx.fillRect(n.x - 8, tabY - 8, 16, 16);
-        ctx.fillStyle = "#00d4ff";
-        ctx.font = "bold 13px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(tab.f, n.x, tabY + 5);
+        ctx.fillStyle = "#151515"; ctx.fillRect(n.x - 9, tabY - 9, 18, 18);
+        ctx.fillStyle = "#00d4ff"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
+        ctx.fillText(tab.f, n.x, tabY + 6);
     }
   });
 }
 
 function drawLedgerLines(x, index) {
   ctx.strokeStyle = "white"; ctx.lineWidth = 1.5;
-  if (index < 5) {
-    for (let i = 3; i >= index; i -= 2) {
+  if (index < 5) { for (let i = 3; i >= index; i -= 2) {
       let ly = staffTop + (i * (step/2));
       ctx.beginPath(); ctx.moveTo(x - 15, ly); ctx.lineTo(x + 15, ly); ctx.stroke();
-    }
-  }
-  if (index > 13) {
-    for (let i = 15; i <= index; i += 2) {
+  }}
+  if (index > 13) { for (let i = 15; i <= index; i += 2) {
       let ly = staffTop + (i * (step/2));
       ctx.beginPath(); ctx.moveTo(x - 15, ly); ctx.lineTo(x + 15, ly); ctx.stroke();
-    }
-  }
+  }}
 }
 
 function togglePlayback() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
-  if (isPlaying) {
-    clearInterval(playbackInterval);
-    isPlaying = false;
-    document.getElementById("playBtn").innerText = "PLAY";
-  } else {
-    isPlaying = true;
-    currentBeat = 0;
-    document.getElementById("playBtn").innerText = "STOP";
-    
-    // Play eerste noot direct
-    const firstNote = notes.find(n => n.beat === 0);
-    if (firstNote) playBassTone(firstNote.note);
-
+  if (isPlaying) { clearInterval(playbackInterval); isPlaying = false; document.getElementById("playBtn").innerText = "PLAY"; }
+  else {
+    isPlaying = true; currentBeat = 0; document.getElementById("playBtn").innerText = "STOP";
+    const first = notes.find(n => n.beat === 0); if (first) playBassTone(first.note);
     playbackInterval = setInterval(() => {
-      currentBeat++;
-      if (currentBeat > 20) currentBeat = 0;
-      const noteToPlay = notes.find(n => n.beat === currentBeat);
-      if (noteToPlay) playBassTone(noteToPlay.note);
+      currentBeat++; if (currentBeat > 20) currentBeat = 0;
+      const n = notes.find(n => n.beat === currentBeat); if (n) playBassTone(n.note);
     }, 500);
   }
 }
@@ -189,34 +183,26 @@ canvas.addEventListener("pointerdown", (e) => {
   if (audioCtx.state === 'suspended') audioCtx.resume();
   isTouching = true;
   const rect = canvas.getBoundingClientRect();
-  const rawX = e.clientX - rect.left;
-  const rawY = e.clientY - rect.top - 75;
-  let bIdx = Math.round((rawX - startMargin) / beatWidth);
-  let pIdx = Math.round((rawY - staffTop) / (step / 2));
-  pIdx = Math.max(0, Math.min(noteMap.length - 1, pIdx));
-  ghost = { x: startMargin + (bIdx * beatWidth), y: staffTop + pIdx * (step / 2), note: noteMap[pIdx], index: pIdx, beat: bIdx };
+  const bIdx = Math.round((e.clientX - rect.left - startMargin) / beatWidth);
+  const pIdx = Math.round((e.clientY - rect.top - 75 - staffTop) / (step / 2));
+  const p = Math.max(0, Math.min(noteMap.length - 1, pIdx));
+  ghost = { x: startMargin + (bIdx * beatWidth), y: staffTop + p * (step / 2), note: noteMap[p], index: p, beat: bIdx };
   playBassTone(ghost.note);
 });
 
 canvas.addEventListener("pointermove", (e) => {
   if (!isTouching) return;
   const rect = canvas.getBoundingClientRect();
-  const rawX = e.clientX - rect.left;
-  const rawY = e.clientY - rect.top - 75;
-  let bIdx = Math.round((rawX - startMargin) / beatWidth);
-  let pIdx = Math.round((rawY - staffTop) / (step / 2));
-  pIdx = Math.max(0, Math.min(noteMap.length - 1, pIdx));
-  let newGhost = { x: startMargin + (bIdx * beatWidth), y: staffTop + pIdx * (step / 2), note: noteMap[pIdx], index: pIdx, beat: bIdx };
-  if (ghost && newGhost.note !== ghost.note) playBassTone(newGhost.note);
-  ghost = newGhost;
+  const bIdx = Math.round((e.clientX - rect.left - startMargin) / beatWidth);
+  const pIdx = Math.round((e.clientY - rect.top - 75 - staffTop) / (step / 2));
+  const p = Math.max(0, Math.min(noteMap.length - 1, pIdx));
+  let nG = { x: startMargin + (bIdx * beatWidth), y: staffTop + p * (step / 2), note: noteMap[p], index: p, beat: bIdx };
+  if (ghost && nG.note !== ghost.note) playBassTone(nG.note);
+  ghost = nG;
 });
 
 canvas.addEventListener("pointerup", () => {
-  if (isTouching && ghost) {
-    notes = notes.filter(n => n.beat !== ghost.beat);
-    notes.push(ghost);
-    ghost = null;
-  }
+  if (isTouching && ghost) { notes = notes.filter(n => n.beat !== ghost.beat); notes.push(ghost); ghost = null; }
   isTouching = false;
 });
 
