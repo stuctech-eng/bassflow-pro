@@ -1,36 +1,110 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>BassFlow Editor</title>
+
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      overflow: hidden;
+      /* Voorkomt dat de pagina naar beneden trekt (refresh) in mobiele browsers */
+      overscroll-behavior-y: contain;
+    }
+
+    h3 {
+      margin: 15px 0 10px;
+      font-weight: 300;
+      letter-spacing: 2px;
+      color: #00d4ff;
+    }
+
+    canvas {
+      background: #1a1a1a;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      touch-action: none; /* Cruciaal voor pointer events */
+      border-radius: 4px;
+    }
+
+    .controls {
+      margin-top: 15px;
+    }
+
+    button {
+      background: #333;
+      color: white;
+      border: 1px solid #555;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:active {
+      background: #00d4ff;
+      color: black;
+    }
+  </style>
+</head>
+<body>
+
+<h3>BASSFLOW EDITOR</h3>
+<canvas id="canvas"></canvas>
+
+<div class="controls">
+  <button onclick="clearNotes()">Leegmaken</button>
+  <p style="font-size: 12px; color: #666;">Sleep om een noot te plaatsen</p>
+</div>
+
+<script>
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// Responsive canvas
-canvas.width = window.innerWidth;
-canvas.height = 320;
+// Maak het canvas breedte-vullend
+canvas.width = window.innerWidth - 20;
+canvas.height = 350;
 
 let notes = [];
 let ghost = null;
 let isTouching = false;
 
-// Instellingen
-const step = 12; 
-const staffTop = 80; // Iets lager voor de hoge noten
-const noteMap = ["b/5","a/5","g/5","f/5","e/5","d/5","c/5","b/4","a/4","g/4","f/4","e/4","d/4","c/4","b/3","a/3","g/3","f/3","e/3"];
+// Configuratie
+const step = 14; 
+const staffTop = 80;
+// De noten die we kunnen tekenen
+const noteMap = [
+  "b/5","a/5","g/5","f/5","e/5","d/5","c/5",
+  "b/4","a/4","g/4","f/4","e/4","d/4","c/4",
+  "b/3","a/3","g/3","f/3","e/3"
+];
 
-// De 5 standaard lijnen van de notenbalk (index 4 t/m 12 in de noteMap voor een G-sleutel setup)
+// Indexen van de 5 lijnen van de notenbalk (G-sleutel posities)
 const staffLineIndexes = [4, 6, 8, 10, 12]; 
 
 function drawStaff() {
-  ctx.strokeStyle = "#888";
+  ctx.strokeStyle = "#444";
   ctx.lineWidth = 1;
 
+  // Teken de 5 hoofdlijnen
   staffLineIndexes.forEach(index => {
     let y = staffTop + (index * (step / 2));
     ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
+    ctx.moveTo(10, y);
+    ctx.lineTo(canvas.width - 10, y);
     ctx.stroke();
   });
 }
 
-function getNote(x, y) {
+function getNoteData(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const x = clientX - rect.left;
+  // Offset van 40px zodat de noot boven je vinger zweeft
+  const y = clientY - rect.top - 40; 
+
   let index = Math.round((y - staffTop) / (step / 2));
   index = Math.max(0, Math.min(noteMap.length - 1, index));
 
@@ -42,12 +116,12 @@ function getNote(x, y) {
   };
 }
 
-function drawLedgerLines(x, y, index) {
+function drawLedgerLines(x, index) {
   ctx.strokeStyle = "white";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 1.5;
   const halfStep = step / 2;
 
-  // Hulplijnen boven (index < 4)
+  // Hulplijnen boven de balk
   if (index < 4) {
     for (let i = 4 - 2; i >= index; i -= 2) {
       let ly = staffTop + (i * halfStep);
@@ -58,7 +132,7 @@ function drawLedgerLines(x, y, index) {
     }
   }
 
-  // Hulplijnen onder (index > 12)
+  // Hulplijnen onder de balk
   if (index > 12) {
     for (let i = 12 + 2; i <= index; i += 2) {
       let ly = staffTop + (i * halfStep);
@@ -72,31 +146,41 @@ function drawLedgerLines(x, y, index) {
 
 function drawNotes() {
   notes.forEach(n => {
-    drawLedgerLines(n.x, n.y, n.index);
+    drawLedgerLines(n.x, n.index);
+    
+    // Nootbolletje
     ctx.beginPath();
-    ctx.arc(n.x, n.y, 6, 0, Math.PI * 2);
+    ctx.ellipse(n.x, n.y, 7, 5, Math.PI / -4, 0, Math.PI * 2);
     ctx.fillStyle = "white";
     ctx.fill();
-    
-    // Stok aan de noot (optioneel)
+
+    // Stok (stem)
     ctx.beginPath();
+    ctx.lineWidth = 1;
     ctx.moveTo(n.x + 6, n.y);
-    ctx.lineTo(n.x + 6, n.y - 30);
+    ctx.lineTo(n.x + 6, n.y - 35);
     ctx.stroke();
   });
 }
 
 function drawGhost() {
   if (!ghost) return;
+  ctx.save();
   ctx.globalAlpha = 0.5;
-  drawLedgerLines(ghost.x, ghost.y, ghost.index);
+  drawLedgerLines(ghost.x, ghost.index);
+  
   ctx.beginPath();
-  ctx.arc(ghost.x, ghost.y, 6, 0, Math.PI * 2);
-  ctx.fillStyle = "cyan"; // Ghost kleur
+  ctx.ellipse(ghost.x, ghost.y, 7, 5, Math.PI / -4, 0, Math.PI * 2);
+  ctx.fillStyle = "#00d4ff";
   ctx.fill();
-  ctx.globalAlpha = 1.0;
+  ctx.restore();
 }
 
+function clearNotes() {
+  notes = [];
+}
+
+// Main Loop
 function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawStaff();
@@ -106,32 +190,31 @@ function loop() {
 }
 loop();
 
-// Event Listeners (Unified voor muis en touch)
-function handleInput(e) {
-  const rect = canvas.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-  
-  // Offset correctie voor vinger-zichtbaarheid op touch
-  const visualOffset = e.touches ? 40 : 0; 
-  
-  return getNote(clientX - rect.left, clientY - rect.top - visualOffset);
-}
-
+// Unified Pointer Events voor Muis & Touch
 canvas.addEventListener("pointerdown", (e) => {
   isTouching = true;
-  ghost = handleInput(e);
+  ghost = getNoteData(e.clientX, e.clientY);
+  canvas.setPointerCapture(e.pointerId); // Zorgt dat beweging gevolgd wordt ook buiten canvas
 });
 
 canvas.addEventListener("pointermove", (e) => {
   if (!isTouching) return;
-  ghost = handleInput(e);
+  ghost = getNoteData(e.clientX, e.clientY);
 });
 
-window.addEventListener("pointerup", () => {
+canvas.addEventListener("pointerup", (e) => {
   if (isTouching && ghost) {
     notes.push(ghost);
     ghost = null;
   }
   isTouching = false;
 });
+
+// Window resize opvangen
+window.addEventListener("resize", () => {
+  canvas.width = window.innerWidth - 20;
+});
+</script>
+
+</body>
+</html>
