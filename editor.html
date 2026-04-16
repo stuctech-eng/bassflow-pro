@@ -3,51 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>BassFlow Editor - Basgitaar</title>
-
+  <title>BassFlow Editor - F-Sleutel</title>
   <style>
-    body {
-      margin: 0;
-      background: #0d0d0d;
-      color: white;
-      font-family: sans-serif;
-      text-align: center;
-      overflow: hidden;
-      overscroll-behavior-y: contain;
-    }
-
-    h3 {
-      margin: 15px 0 5px;
-      color: #00d4ff;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-    }
-
-    canvas {
-      background: #1a1a1a;
-      display: block;
-      margin: 0 auto;
-      touch-action: none;
-      border-bottom: 2px solid #333;
-    }
-
-    .controls {
-      margin-top: 15px;
-    }
-
-    button {
-      background: #222;
-      color: #00d4ff;
-      border: 1px solid #00d4ff;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-weight: bold;
-    }
-
-    button:active {
-      background: #00d4ff;
-      color: black;
-    }
+    body { margin: 0; background: #0d0d0d; color: white; font-family: sans-serif; text-align: center; overflow: hidden; overscroll-behavior-y: contain; }
+    h3 { margin: 15px 0 5px; color: #00d4ff; text-transform: uppercase; letter-spacing: 2px; }
+    canvas { background: #1a1a1a; display: block; margin: 0 auto; touch-action: none; border-bottom: 2px solid #333; }
+    .controls { margin-top: 15px; }
+    button { background: #222; color: #00d4ff; border: 1px solid #00d4ff; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -70,24 +32,33 @@ let notes = [];
 let ghost = null;
 let isTouching = false;
 
-// --- BASGITAAR CONFIGURATIE ---
 const step = 14; 
 const staffTop = 70;
-
-// NoteMap voor Basgitaar (F-sleutel)
-// Van G3 (hoog) tot E1 (laagste snaar bas)
-const noteMap = [
-  "g/3","f/3","e/3","d/3","c/3", // Boven de balk
-  "b/2","a/2","g/2","f/2","e/2", // De 5 lijnen van de balk
-  "d/2","c/2","b/1","a/1","g/1", // Onder de balk
-  "f/1","e/1"                    // Hulplijnen onder
-];
-
-// De lijnen voor de Bass Clef (F-sleutel)
+const noteMap = ["g/3","f/3","e/3","d/3","c/3","b/2","a/2","g/2","f/2","e/2","d/2","c/2","b/1","a/1","g/1","f/1","e/1"];
 const staffLineIndexes = [5, 7, 9, 11, 13]; 
 
+// Functie om de F-sleutel (Bass Clef) te tekenen
+function drawBassClef(x, y) {
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 3;
+    
+    // De krul (start op de F-lijn: index 7)
+    const startY = staffTop + (7 * (step / 2));
+    ctx.beginPath();
+    ctx.arc(x + 10, startY + 5, 8, Math.PI * 1.1, Math.PI * 0.2);
+    ctx.bezierCurveTo(x + 25, startY - 15, x + 25, startY + 30, x + 5, startY + 45);
+    ctx.stroke();
+
+    // De twee puntjes (rondom de F-lijn)
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(x + 30, startY - 5, 2.5, 0, Math.PI * 2); // boven de lijn
+    ctx.arc(x + 30, startY + 5, 2.5, 0, Math.PI * 2); // onder de lijn
+    ctx.fill();
+}
+
 function drawStaff() {
-  ctx.strokeStyle = "#555";
+  ctx.strokeStyle = "#888"; // Iets lichtere lijnen voor betere zichtbaarheid
   ctx.lineWidth = 1;
 
   staffLineIndexes.forEach(index => {
@@ -97,41 +68,33 @@ function drawStaff() {
     ctx.lineTo(canvas.width, y);
     ctx.stroke();
   });
+  
+  // Teken de F-sleutel aan het begin
+  drawBassClef(20, staffTop);
 }
 
 function getNoteData(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
   const x = clientX - rect.left;
-  
-  // OFFSET FIX: 70px zorgt dat de noot ruim boven je vinger zweeft
-  const visualOffset = 70; 
+  const visualOffset = 75; // Ietsje ruimer nog voor de zekerheid
   const y = clientY - rect.top - visualOffset; 
 
   let index = Math.round((y - staffTop) / (step / 2));
   index = Math.max(0, Math.min(noteMap.length - 1, index));
 
-  return {
-    x: x,
-    y: staffTop + index * (step / 2),
-    note: noteMap[index],
-    index: index
-  };
+  return { x: x, y: staffTop + index * (step / 2), note: noteMap[index], index: index };
 }
 
 function drawLedgerLines(x, index) {
   ctx.strokeStyle = "white";
   ctx.lineWidth = 1.5;
   const halfStep = step / 2;
-
-  // Hulplijnen boven (index < 5)
   if (index < 5) {
     for (let i = 5 - 2; i >= index; i -= 2) {
       let ly = staffTop + (i * halfStep);
       ctx.beginPath(); ctx.moveTo(x - 15, ly); ctx.lineTo(x + 15, ly); ctx.stroke();
     }
   }
-
-  // Hulplijnen onder (index > 13)
   if (index > 13) {
     for (let i = 13 + 2; i <= index; i += 2) {
       let ly = staffTop + (i * halfStep);
@@ -143,22 +106,16 @@ function drawLedgerLines(x, index) {
 function drawNotes() {
   notes.forEach(n => {
     drawLedgerLines(n.x, n.index);
-    
-    // Nootkop
     ctx.beginPath();
     ctx.ellipse(n.x, n.y, 7, 5, Math.PI / -4, 0, Math.PI * 2);
     ctx.fillStyle = "white";
     ctx.fill();
-
-    // Stokken logica: boven de middenlijn = stok omlaag, onder = stok omhoog
     ctx.beginPath();
     ctx.lineWidth = 1.5;
     if (n.index <= 9) { 
-        ctx.moveTo(n.x - 6, n.y);
-        ctx.lineTo(n.x - 6, n.y + 35);
+        ctx.moveTo(n.x - 6, n.y); ctx.lineTo(n.x - 6, n.y + 35);
     } else {
-        ctx.moveTo(n.x + 6, n.y);
-        ctx.lineTo(n.x + 6, n.y - 35);
+        ctx.moveTo(n.x + 6, n.y); ctx.lineTo(n.x + 6, n.y - 35);
     }
     ctx.stroke();
   });
@@ -169,7 +126,6 @@ function drawGhost() {
   ctx.save();
   ctx.globalAlpha = 0.6;
   drawLedgerLines(ghost.x, ghost.index);
-  
   ctx.beginPath();
   ctx.ellipse(ghost.x, ghost.y, 7, 5, Math.PI / -4, 0, Math.PI * 2);
   ctx.fillStyle = "#00d4ff";
@@ -177,9 +133,7 @@ function drawGhost() {
   ctx.restore();
 }
 
-function clearNotes() {
-  notes = [];
-}
+function clearNotes() { notes = []; }
 
 function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -190,7 +144,6 @@ function loop() {
 }
 loop();
 
-// Event Listeners
 canvas.addEventListener("pointerdown", (e) => {
   isTouching = true;
   ghost = getNoteData(e.clientX, e.clientY);
@@ -210,10 +163,7 @@ canvas.addEventListener("pointerup", (e) => {
   isTouching = false;
 });
 
-window.addEventListener("resize", () => {
-  canvas.width = window.innerWidth;
-});
+window.addEventListener("resize", () => { canvas.width = window.innerWidth; });
 </script>
-
 </body>
 </html>
