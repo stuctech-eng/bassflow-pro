@@ -32,7 +32,7 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 canvas.width = window.innerWidth;
-canvas.height = 200;
+canvas.height = 220;
 
 let notes = [];
 let ghost = null;
@@ -42,7 +42,7 @@ let isTouching = false;
 function drawStaff() {
   ctx.strokeStyle = "white";
   for (let i = 0; i < 5; i++) {
-    let y = 60 + i * 15;
+    let y = 80 + i * 15;
     ctx.beginPath();
     ctx.moveTo(10, y);
     ctx.lineTo(canvas.width - 10, y);
@@ -53,12 +53,12 @@ function drawStaff() {
 // mapping
 function getNote(y) {
   const map = [
-    { y: 60, note: "F5" },
-    { y: 75, note: "D5" },
-    { y: 90, note: "B4" },
-    { y: 105, note: "G4" },
-    { y: 120, note: "E4" },
-    { y: 135, note: "C4" }
+    { y: 80, note: "F5" },
+    { y: 95, note: "D5" },
+    { y: 110, note: "B4" },
+    { y: 125, note: "G4" },
+    { y: 140, note: "E4" },
+    { y: 155, note: "C4" }
   ];
 
   return map.reduce((a, b) =>
@@ -66,7 +66,7 @@ function getNote(y) {
   );
 }
 
-// draw notes
+// notes
 function drawNotes() {
   notes.forEach(n => {
     ctx.beginPath();
@@ -76,7 +76,7 @@ function drawNotes() {
   });
 }
 
-// ghost
+// ghost (met offset)
 function drawGhost() {
   if (!ghost) return;
 
@@ -86,7 +86,7 @@ function drawGhost() {
   ctx.fill();
 }
 
-// redraw loop (smooth!)
+// loop
 function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawStaff();
@@ -118,7 +118,8 @@ canvas.addEventListener("touchmove", (e) => {
 
   ghost = {
     x: x,
-    y: snapped.y,
+    y: snapped.y - 35,   // 👈 zichtbaar boven je vinger
+    realY: snapped.y,    // 👈 echte positie
     note: snapped.note
   };
 });
@@ -128,7 +129,12 @@ canvas.addEventListener("touchend", (e) => {
   e.preventDefault();
 
   if (ghost) {
-    notes.push(ghost);
+    notes.push({
+      x: ghost.x,
+      y: ghost.realY, // 👈 juiste plek op balk
+      note: ghost.note
+    });
+
     ghost = null;
   }
 
