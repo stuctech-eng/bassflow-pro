@@ -32,17 +32,21 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 canvas.width = window.innerWidth;
-canvas.height = 220;
+canvas.height = 240;
 
 let notes = [];
 let ghost = null;
 let isTouching = false;
 
 // staff
+const staffTop = 80;
+const spacing = 15;
+
+// lijnen tekenen
 function drawStaff() {
   ctx.strokeStyle = "white";
   for (let i = 0; i < 5; i++) {
-    let y = 80 + i * 15;
+    let y = staffTop + i * spacing;
     ctx.beginPath();
     ctx.moveTo(10, y);
     ctx.lineTo(canvas.width - 10, y);
@@ -50,23 +54,28 @@ function drawStaff() {
   }
 }
 
+// 🔥 volledige schaal (lijnen + ruimtes)
+const noteMap = [
+  "g/5","f/5","e/5","d/5","c/5",
+  "b/4","a/4","g/4","f/4","e/4",
+  "d/4","c/4"
+];
+
 // mapping
 function getNote(y) {
-  const map = [
-    { y: 80, note: "F5" },
-    { y: 95, note: "D5" },
-    { y: 110, note: "B4" },
-    { y: 125, note: "G4" },
-    { y: 140, note: "E4" },
-    { y: 155, note: "C4" }
-  ];
+  const step = spacing / 2; // halve stap = lijn + ruimte
 
-  return map.reduce((a, b) =>
-    Math.abs(b.y - y) < Math.abs(a.y - y) ? b : a
-  );
+  let index = Math.round((y - staffTop) / step);
+
+  index = Math.max(0, Math.min(noteMap.length - 1, index));
+
+  return {
+    y: staffTop + index * step,
+    note: noteMap[index]
+  };
 }
 
-// notes
+// notes tekenen
 function drawNotes() {
   notes.forEach(n => {
     ctx.beginPath();
@@ -76,7 +85,7 @@ function drawNotes() {
   });
 }
 
-// ghost (met offset)
+// ghost
 function drawGhost() {
   if (!ghost) return;
 
@@ -118,8 +127,8 @@ canvas.addEventListener("touchmove", (e) => {
 
   ghost = {
     x: x,
-    y: snapped.y - 35,   // 👈 zichtbaar boven je vinger
-    realY: snapped.y,    // 👈 echte positie
+    y: snapped.y - 55,   // 👈 EXTRA HOOG
+    realY: snapped.y,
     note: snapped.note
   };
 });
@@ -131,7 +140,7 @@ canvas.addEventListener("touchend", (e) => {
   if (ghost) {
     notes.push({
       x: ghost.x,
-      y: ghost.realY, // 👈 juiste plek op balk
+      y: ghost.realY,
       note: ghost.note
     });
 
@@ -141,7 +150,7 @@ canvas.addEventListener("touchend", (e) => {
   isTouching = false;
 });
 
-// click fallback
+// klik fallback
 canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
 
