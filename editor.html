@@ -38,11 +38,11 @@ let notes = [];
 let ghost = null;
 let isTouching = false;
 
-// staff
 const staffTop = 80;
 const spacing = 15;
+const offset = 55; // 👈 hier stel je hoogte boven vinger in
 
-// lijnen tekenen
+// staff
 function drawStaff() {
   ctx.strokeStyle = "white";
   for (let i = 0; i < 5; i++) {
@@ -54,7 +54,7 @@ function drawStaff() {
   }
 }
 
-// 🔥 volledige schaal (lijnen + ruimtes)
+// schaal
 const noteMap = [
   "g/5","f/5","e/5","d/5","c/5",
   "b/4","a/4","g/4","f/4","e/4",
@@ -63,10 +63,9 @@ const noteMap = [
 
 // mapping
 function getNote(y) {
-  const step = spacing / 2; // halve stap = lijn + ruimte
+  const step = spacing / 2;
 
   let index = Math.round((y - staffTop) / step);
-
   index = Math.max(0, Math.min(noteMap.length - 1, index));
 
   return {
@@ -75,7 +74,7 @@ function getNote(y) {
   };
 }
 
-// notes tekenen
+// draw notes
 function drawNotes() {
   notes.forEach(n => {
     ctx.beginPath();
@@ -114,21 +113,21 @@ canvas.addEventListener("touchstart", (e) => {
 // touch move
 canvas.addEventListener("touchmove", (e) => {
   e.preventDefault();
-
   if (!isTouching) return;
 
   const rect = canvas.getBoundingClientRect();
   const touch = e.touches[0];
 
   const x = touch.clientX - rect.left;
-  const y = touch.clientY - rect.top;
 
-  const snapped = getNote(y);
+  // 👇 CRUCIAAL: we rekenen met offset
+  const virtualY = touch.clientY - rect.top - offset;
+
+  const snapped = getNote(virtualY);
 
   ghost = {
     x: x,
-    y: snapped.y - 55,   // 👈 EXTRA HOOG
-    realY: snapped.y,
+    y: snapped.y,   // 👈 GEEN extra offset meer!
     note: snapped.note
   };
 });
@@ -138,12 +137,7 @@ canvas.addEventListener("touchend", (e) => {
   e.preventDefault();
 
   if (ghost) {
-    notes.push({
-      x: ghost.x,
-      y: ghost.realY,
-      note: ghost.note
-    });
-
+    notes.push(ghost); // 👈 exact dezelfde positie
     ghost = null;
   }
 
