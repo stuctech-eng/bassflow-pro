@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>BassFlow Editor MVP</title>
-  <script src="https://unpkg.com/vexflow/releases/vexflow-min.js"></script>
+  <title>BassFlow Editor Test</title>
   <style>
     body {
       margin: 0;
@@ -13,107 +12,117 @@
       font-family: sans-serif;
       text-align: center;
     }
-    #score {
+
+    canvas {
+      background: #222;
       margin-top: 20px;
+      touch-action: none;
     }
   </style>
 </head>
 <body>
 
-<h3>BassFlow - Noten Editor (MVP)</h3>
-<div id="score"></div>
+<h3>BassFlow - Touch Test</h3>
+<canvas id="canvas"></canvas>
 
 <script>
-const VF = Vex.Flow;
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
 
-// Setup renderer
-const div = document.getElementById("score");
-const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
-renderer.resize(window.innerWidth, 200);
+canvas.width = window.innerWidth;
+canvas.height = 200;
 
-const context = renderer.getContext();
+let notes = [];
 
-// Staff
-const stave = new VF.Stave(10, 40, window.innerWidth - 20);
-stave.addClef("treble");
-stave.setContext(context).draw();
+// teken balk
+function drawStaff() {
+  ctx.strokeStyle = "white";
+  for (let i = 0; i < 5; i++) {
+    let y = 60 + i * 15;
+    ctx.beginPath();
+    ctx.moveTo(10, y);
+    ctx.lineTo(canvas.width - 10, y);
+    ctx.stroke();
+  }
+}
 
-// Opslag noten
-let notesData = [];
-
-// Mapping Y → noot
-function getNoteFromY(y) {
-  const noteMap = [
-    { y: 60, note: "f/5" },
-    { y: 70, note: "e/5" },
-    { y: 80, note: "d/5" },
-    { y: 90, note: "c/5" },
-    { y: 100, note: "b/4" },
-    { y: 110, note: "a/4" },
-    { y: 120, note: "g/4" },
-    { y: 130, note: "f/4" },
-    { y: 140, note: "e/4" },
-    { y: 150, note: "d/4" },
-    { y: 160, note: "c/4" }
+// mapping Y → noot
+function getNote(y) {
+  const map = [
+    { y: 60, note: "F5" },
+    { y: 75, note: "D5" },
+    { y: 90, note: "B4" },
+    { y: 105, note: "G4" },
+    { y: 120, note: "E4" },
+    { y: 135, note: "C4" }
   ];
 
-  let closest = noteMap.reduce((prev, curr) => {
-    return Math.abs(curr.y - y) < Math.abs(prev.y - y) ? curr : prev;
-  });
-
-  return closest.note;
-}
-
-// Render functie
-function drawNotes() {
-  context.clear();
-  stave.setContext(context).draw();
-
-  const notes = notesData.map(n =>
-    new VF.StaveNote({
-      clef: "treble",
-      keys: [n],
-      duration: "q"
-    })
+  let closest = map.reduce((a, b) =>
+    Math.abs(b.y - y) < Math.abs(a.y - y) ? b : a
   );
 
-  if (notes.length === 0) return;
-
-  const voice = new VF.Voice({ num_beats: notes.length, beat_value: 4 });
-  voice.addTickables(notes);
-
-  const formatter = new VF.Formatter().joinVoices([voice]).format([voice], window.innerWidth - 40);
-
-  voice.draw(context, stave);
+  return closest;
 }
 
-// Touch input
-div.addEventListener("touchstart", (e) => {
-  const rect = div.getBoundingClientRect();
+// teken noten
+function drawNotes() {
+  notes.forEach(n => {
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = "white";
+    ctx.fill();
+
+    ctx.fillText(n.note, n.x - 10, n.y - 10);
+  });
+}
+
+// redraw
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawStaff();
+  drawNotes();
+}
+
+// touch
+canvas.addEventListener("touchstart", (e) => {
+  const rect = canvas.getBoundingClientRect();
   const touch = e.touches[0];
 
+  const x = touch.clientX - rect.left;
   const y = touch.clientY - rect.top;
 
-  const note = getNoteFromY(y);
+  const snapped = getNote(y);
 
-  notesData.push(note);
+  notes.push({
+    x: x,
+    y: snapped.y,
+    note: snapped.note
+  });
 
-  drawNotes();
+  draw();
 
-  console.log(notesData);
+  console.log(notes);
 });
 
-// Desktop klik (voor testen)
-div.addEventListener("click", (e) => {
-  const rect = div.getBoundingClientRect();
+// klik (desktop test)
+canvas.addEventListener("click", (e) => {
+  const rect = canvas.getBoundingClientRect();
+
+  const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
 
-  const note = getNoteFromY(y);
+  const snapped = getNote(y);
 
-  notesData.push(note);
+  notes.push({
+    x: x,
+    y: snapped.y,
+    note: snapped.note
+  });
 
-  drawNotes();
+  draw();
 });
+
+draw();
 </script>
 
 </body>
