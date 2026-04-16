@@ -79,13 +79,54 @@ function getNote(y) {
 // notes
 function drawNotes() {
   notes.forEach(n => {
+
+    // teken hulplijntjes
+    drawLedgerLines(n.y);
+
+    // teken noot
     ctx.beginPath();
     ctx.arc(n.x, n.y, 6, 0, Math.PI * 2);
     ctx.fillStyle = "white";
     ctx.fill();
   });
 }
+function drawLedgerLines(y) {
+  const lineSpacing = 12; // zelfde als je step/2 ongeveer
+  const staffLines = [];
 
+  // bepaal waar de 5 lijnen zitten
+  const midIndex = Math.floor(noteMap.length / 2);
+
+  for (let i = -2; i <= 2; i++) {
+    staffLines.push(staffTop + (midIndex + i * 2) * lineSpacing);
+  }
+
+  const topLine = staffLines[0];
+  const bottomLine = staffLines[4];
+
+  ctx.strokeStyle = "white";
+
+  // boven de balk
+  if (y < topLine) {
+    for (let ly = topLine - lineSpacing; ly >= y; ly -= lineSpacing) {
+      drawSmallLine(ly);
+    }
+  }
+
+  // onder de balk
+  if (y > bottomLine) {
+    for (let ly = bottomLine + lineSpacing; ly <= y; ly += lineSpacing) {
+      drawSmallLine(ly);
+    }
+  }
+}
+
+function drawSmallLine(y) {
+  ctx.beginPath();
+  ctx.moveTo(-10 + canvas.width / 2 - 20, y);
+  ctx.lineTo(10 + canvas.width / 2 + 20, y);
+  ctx.stroke();
+}
 // ghost
 function drawGhost() {
   if (!ghost) return;
