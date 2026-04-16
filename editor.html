@@ -3,32 +3,32 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>BassFlow Editor</title>
+  <title>BassFlow Editor - Basgitaar</title>
 
   <style>
     body {
       margin: 0;
-      background: #111;
+      background: #0d0d0d;
       color: white;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: sans-serif;
       text-align: center;
       overflow: hidden;
-      /* Voorkomt dat de pagina naar beneden trekt (refresh) in mobiele browsers */
       overscroll-behavior-y: contain;
     }
 
     h3 {
-      margin: 15px 0 10px;
-      font-weight: 300;
-      letter-spacing: 2px;
+      margin: 15px 0 5px;
       color: #00d4ff;
+      text-transform: uppercase;
+      letter-spacing: 2px;
     }
 
     canvas {
       background: #1a1a1a;
-      box-shadow: 0 0 20px rgba(0,0,0,0.5);
-      touch-action: none; /* Cruciaal voor pointer events */
-      border-radius: 4px;
+      display: block;
+      margin: 0 auto;
+      touch-action: none;
+      border-bottom: 2px solid #333;
     }
 
     .controls {
@@ -36,12 +36,12 @@
     }
 
     button {
-      background: #333;
-      color: white;
-      border: 1px solid #555;
-      padding: 10px 20px;
-      border-radius: 5px;
-      cursor: pointer;
+      background: #222;
+      color: #00d4ff;
+      border: 1px solid #00d4ff;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: bold;
     }
 
     button:active {
@@ -52,49 +52,49 @@
 </head>
 <body>
 
-<h3>BASSFLOW EDITOR</h3>
+<h3>BassFlow Editor</h3>
 <canvas id="canvas"></canvas>
 
 <div class="controls">
-  <button onclick="clearNotes()">Leegmaken</button>
-  <p style="font-size: 12px; color: #666;">Sleep om een noot te plaatsen</p>
+  <button onclick="clearNotes()">CLEAR</button>
 </div>
 
 <script>
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// Maak het canvas breedte-vullend
-canvas.width = window.innerWidth - 20;
+canvas.width = window.innerWidth;
 canvas.height = 350;
 
 let notes = [];
 let ghost = null;
 let isTouching = false;
 
-// Configuratie
+// --- BASGITAAR CONFIGURATIE ---
 const step = 14; 
-const staffTop = 80;
-// De noten die we kunnen tekenen
+const staffTop = 70;
+
+// NoteMap voor Basgitaar (F-sleutel)
+// Van G3 (hoog) tot E1 (laagste snaar bas)
 const noteMap = [
-  "b/5","a/5","g/5","f/5","e/5","d/5","c/5",
-  "b/4","a/4","g/4","f/4","e/4","d/4","c/4",
-  "b/3","a/3","g/3","f/3","e/3"
+  "g/3","f/3","e/3","d/3","c/3", // Boven de balk
+  "b/2","a/2","g/2","f/2","e/2", // De 5 lijnen van de balk
+  "d/2","c/2","b/1","a/1","g/1", // Onder de balk
+  "f/1","e/1"                    // Hulplijnen onder
 ];
 
-// Indexen van de 5 lijnen van de notenbalk (G-sleutel posities)
-const staffLineIndexes = [4, 6, 8, 10, 12]; 
+// De lijnen voor de Bass Clef (F-sleutel)
+const staffLineIndexes = [5, 7, 9, 11, 13]; 
 
 function drawStaff() {
-  ctx.strokeStyle = "#444";
+  ctx.strokeStyle = "#555";
   ctx.lineWidth = 1;
 
-  // Teken de 5 hoofdlijnen
   staffLineIndexes.forEach(index => {
     let y = staffTop + (index * (step / 2));
     ctx.beginPath();
-    ctx.moveTo(10, y);
-    ctx.lineTo(canvas.width - 10, y);
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
     ctx.stroke();
   });
 }
@@ -102,8 +102,10 @@ function drawStaff() {
 function getNoteData(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
   const x = clientX - rect.left;
-  // Offset van 40px zodat de noot boven je vinger zweeft
-  const y = clientY - rect.top - 40; 
+  
+  // OFFSET FIX: 70px zorgt dat de noot ruim boven je vinger zweeft
+  const visualOffset = 70; 
+  const y = clientY - rect.top - visualOffset; 
 
   let index = Math.round((y - staffTop) / (step / 2));
   index = Math.max(0, Math.min(noteMap.length - 1, index));
@@ -121,25 +123,19 @@ function drawLedgerLines(x, index) {
   ctx.lineWidth = 1.5;
   const halfStep = step / 2;
 
-  // Hulplijnen boven de balk
-  if (index < 4) {
-    for (let i = 4 - 2; i >= index; i -= 2) {
+  // Hulplijnen boven (index < 5)
+  if (index < 5) {
+    for (let i = 5 - 2; i >= index; i -= 2) {
       let ly = staffTop + (i * halfStep);
-      ctx.beginPath();
-      ctx.moveTo(x - 15, ly);
-      ctx.lineTo(x + 15, ly);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - 15, ly); ctx.lineTo(x + 15, ly); ctx.stroke();
     }
   }
 
-  // Hulplijnen onder de balk
-  if (index > 12) {
-    for (let i = 12 + 2; i <= index; i += 2) {
+  // Hulplijnen onder (index > 13)
+  if (index > 13) {
+    for (let i = 13 + 2; i <= index; i += 2) {
       let ly = staffTop + (i * halfStep);
-      ctx.beginPath();
-      ctx.moveTo(x - 15, ly);
-      ctx.lineTo(x + 15, ly);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - 15, ly); ctx.lineTo(x + 15, ly); ctx.stroke();
     }
   }
 }
@@ -148,17 +144,22 @@ function drawNotes() {
   notes.forEach(n => {
     drawLedgerLines(n.x, n.index);
     
-    // Nootbolletje
+    // Nootkop
     ctx.beginPath();
     ctx.ellipse(n.x, n.y, 7, 5, Math.PI / -4, 0, Math.PI * 2);
     ctx.fillStyle = "white";
     ctx.fill();
 
-    // Stok (stem)
+    // Stokken logica: boven de middenlijn = stok omlaag, onder = stok omhoog
     ctx.beginPath();
-    ctx.lineWidth = 1;
-    ctx.moveTo(n.x + 6, n.y);
-    ctx.lineTo(n.x + 6, n.y - 35);
+    ctx.lineWidth = 1.5;
+    if (n.index <= 9) { 
+        ctx.moveTo(n.x - 6, n.y);
+        ctx.lineTo(n.x - 6, n.y + 35);
+    } else {
+        ctx.moveTo(n.x + 6, n.y);
+        ctx.lineTo(n.x + 6, n.y - 35);
+    }
     ctx.stroke();
   });
 }
@@ -166,7 +167,7 @@ function drawNotes() {
 function drawGhost() {
   if (!ghost) return;
   ctx.save();
-  ctx.globalAlpha = 0.5;
+  ctx.globalAlpha = 0.6;
   drawLedgerLines(ghost.x, ghost.index);
   
   ctx.beginPath();
@@ -180,7 +181,6 @@ function clearNotes() {
   notes = [];
 }
 
-// Main Loop
 function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawStaff();
@@ -190,11 +190,11 @@ function loop() {
 }
 loop();
 
-// Unified Pointer Events voor Muis & Touch
+// Event Listeners
 canvas.addEventListener("pointerdown", (e) => {
   isTouching = true;
   ghost = getNoteData(e.clientX, e.clientY);
-  canvas.setPointerCapture(e.pointerId); // Zorgt dat beweging gevolgd wordt ook buiten canvas
+  canvas.setPointerCapture(e.pointerId);
 });
 
 canvas.addEventListener("pointermove", (e) => {
@@ -210,9 +210,8 @@ canvas.addEventListener("pointerup", (e) => {
   isTouching = false;
 });
 
-// Window resize opvangen
 window.addEventListener("resize", () => {
-  canvas.width = window.innerWidth - 20;
+  canvas.width = window.innerWidth;
 });
 </script>
 
