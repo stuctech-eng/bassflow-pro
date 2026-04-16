@@ -32,21 +32,32 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 canvas.width = window.innerWidth;
-canvas.height = 240;
+canvas.height = 320;
 
 let notes = [];
 let ghost = null;
 let isTouching = false;
 
-const staffTop = 80;
-const spacing = 15;
-const offset = 55; // 👈 hier stel je hoogte boven vinger in
+// 🔥 GROTER BEREIK
+const noteMap = [
+  "b/5","a/5","g/5","f/5","e/5","d/5","c/5",
+  "b/4","a/4","g/4","f/4","e/4","d/4","c/4",
+  "b/3","a/3","g/3","f/3","e/3"
+];
 
-// staff
+// 🔥 AUTOMATISCHE SCHAAL
+const step = 12; // afstand per stap
+const staffTop = 60;
+
+// staff tekenen (visueel midden)
 function drawStaff() {
   ctx.strokeStyle = "white";
-  for (let i = 0; i < 5; i++) {
-    let y = staffTop + i * spacing;
+
+  // 5 lijnen rond midden van schaal
+  const midIndex = Math.floor(noteMap.length / 2);
+
+  for (let i = -2; i <= 2; i++) {
+    let y = staffTop + (midIndex + i * 2) * step / 2;
     ctx.beginPath();
     ctx.moveTo(10, y);
     ctx.lineTo(canvas.width - 10, y);
@@ -54,27 +65,18 @@ function drawStaff() {
   }
 }
 
-// schaal
-const noteMap = [
-  "b/5","a/5","g/5","f/5","e/5","d/5","c/5",
-  "b/4","a/4","g/4","f/4","e/4","d/4","c/4",
-  "b/3","a/3","g/3","f/3","e/3"
-];
-
-// mapping
+// mapping (nu exact gelijk aan visueel)
 function getNote(y) {
-  const step = spacing / 2;
-
-  let index = Math.round((y - staffTop) / step);
+  let index = Math.round((y - staffTop) / (step / 2));
   index = Math.max(0, Math.min(noteMap.length - 1, index));
 
   return {
-    y: staffTop + index * step,
+    y: staffTop + index * (step / 2),
     note: noteMap[index]
   };
 }
 
-// draw notes
+// notes
 function drawNotes() {
   notes.forEach(n => {
     ctx.beginPath();
@@ -104,13 +106,14 @@ function loop() {
 }
 loop();
 
-// touch start
+const offset = 60;
+
+// touch
 canvas.addEventListener("touchstart", (e) => {
   e.preventDefault();
   isTouching = true;
 });
 
-// touch move
 canvas.addEventListener("touchmove", (e) => {
   e.preventDefault();
   if (!isTouching) return;
@@ -119,32 +122,29 @@ canvas.addEventListener("touchmove", (e) => {
   const touch = e.touches[0];
 
   const x = touch.clientX - rect.left;
-
-  // 👇 CRUCIAAL: we rekenen met offset
   const virtualY = touch.clientY - rect.top - offset;
 
   const snapped = getNote(virtualY);
 
   ghost = {
     x: x,
-    y: snapped.y,   // 👈 GEEN extra offset meer!
+    y: snapped.y,
     note: snapped.note
   };
 });
 
-// touch end
 canvas.addEventListener("touchend", (e) => {
   e.preventDefault();
 
   if (ghost) {
-    notes.push(ghost); // 👈 exact dezelfde positie
+    notes.push(ghost);
     ghost = null;
   }
 
   isTouching = false;
 });
 
-// klik fallback
+// click fallback
 canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
 
