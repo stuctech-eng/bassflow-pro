@@ -7,10 +7,8 @@
   <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body { margin: 0; background: #0d0d0d; color: white; font-family: sans-serif; overflow: hidden; overscroll-behavior: contain; user-select: none; -webkit-user-select: none; }
-
     #toolbar { display: flex; align-items: center; gap: 5px; padding: 8px 10px; background: #111; border-bottom: 1px solid #222; overflow-x: auto; white-space: nowrap; height: 52px; }
     #toolbar::-webkit-scrollbar { display: none; }
-
     .tb { background: #1a1a1a; color: #aaa; border: 1px solid #333; padding: 7px 11px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
     .tb.active { background: #FF2D7A; color: #fff; border-color: #FF2D7A; }
     .tb.play { background: #FF2D7A; color: #fff; border-color: #FF2D7A; min-width: 64px; }
@@ -21,20 +19,16 @@
     .sep { width: 1px; height: 28px; background: #333; flex-shrink: 0; margin: 0 3px; }
     label.tb { display: inline-flex; align-items: center; justify-content: center; }
     input[type="file"] { display: none; }
-
     #bpm-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
     #bpm-label { font-size: 10px; color: #FF2D7A; font-weight: 800; min-width: 54px; }
     #bpm-slider { width: 65px; accent-color: #FF2D7A; }
     #maat-select { background: #1a1a1a; color: #aaa; border: 1px solid #333; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-
     #canvas-wrap { position: relative; width: 100vw; overflow: hidden; }
     canvas { background: #151515; display: block; }
-
-    #opacity-bar { display: none; position: fixed; bottom: 32px; left: 10px; right: 10px; background: #111; border: 1px solid #333; border-radius: 8px; padding: 8px 12px; z-index: 50; }
-    #opacity-bar.open { display: flex; align-items: center; gap: 10px; }
-    #opacity-bar label { font-size: 10px; color: #aaa; white-space: nowrap; }
+    #bg-controls { display: none; position: fixed; bottom: 32px; left: 10px; right: 10px; background: #111; border: 1px solid #333; border-radius: 8px; padding: 8px 12px; z-index: 50; align-items: center; gap: 8px; }
+    #bg-controls.open { display: flex; }
+    #bg-controls label { font-size: 10px; color: #aaa; white-space: nowrap; }
     #opacity-slider { flex: 1; accent-color: #FF2D7A; }
-
     #popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 200; align-items: center; justify-content: center; flex-direction: column; padding: 20px; }
     #popup.open { display: flex; }
     #popup-title { font-size: 13px; font-weight: 800; color: #FF2D7A; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
@@ -45,7 +39,6 @@
     .popup-item .pi-naam { font-size: 10px; color: #888; margin-top: 4px; font-weight: 700; }
     .popup-item .pi-tellen { font-size: 9px; color: #555; margin-top: 2px; }
     #popup-sluit { margin-top: 16px; background: #333; color: #fff; border: none; border-radius: 20px; padding: 10px 28px; font-size: 13px; font-weight: 800; cursor: pointer; }
-
     #statusbar { position: fixed; bottom: 0; left: 0; right: 0; background: #111; border-top: 1px solid #1a1a1a; padding: 5px 12px; font-size: 10px; color: #444; display: flex; justify-content: space-between; height: 28px; align-items: center; }
     #status-msg { color: #FF2D7A; font-weight: 700; font-size: 11px; }
   </style>
@@ -85,10 +78,10 @@
   <canvas id="canvas"></canvas>
 </div>
 
-<div id="opacity-bar">
-  <label>📷 Opacity</label>
-  <input type="range" id="opacity-slider" min="0" max="100" value="40" oninput="setBGOpacity(this.value)">
-  <button class="tb danger" style="padding:4px 8px;font-size:10px" onclick="verwijderBG()">✕</button>
+<div id="bg-controls">
+  <label>📷</label>
+  <input type="range" id="opacity-slider" min="0" max="100" value="35" oninput="setBGOpacity(this.value)">
+  <button class="tb danger" style="padding:5px 9px;font-size:11px" id="bgVerwijderBtn">✕ Verwijder</button>
 </div>
 
 <div id="statusbar">
@@ -102,12 +95,23 @@
   <button id="popup-sluit" onclick="sluitPopup()">Annuleer</button>
 </div>
 
+<!-- Verborgen canvas voor F-sleutel SVG -->
+<canvas id="clef-canvas" style="display:none" width="60" height="120"></canvas>
+
 <script>
 const PINK = "#FF2D7A";
 const CYAN = "#00d4ff";
 
-// Audio - geen autoplay
+// F-sleutel afbeelding via SVG
+const clefImg = new Image();
+const clefSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 120">
+  <text x="5" y="85" font-size="90" font-family="serif" fill="#FF2D7A">&#119070;</text>
+</svg>`;
+clefImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(clefSVG);
+
+// Audio
 let audioCtx = null;
+let audioUnlocked = false;
 function getAudio() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === "suspended") audioCtx.resume();
@@ -128,29 +132,28 @@ let isPinching = false;
 let scrollX = 0;
 let zoomFactor = 1.0;
 let bgImage = null;
-let bgOpacity = 0.4;
+let bgOpacity = 0.35;
 let aiBezig = false;
-let audioUnlocked = false;
 
-// Layout basis
+// Layout
 const TICKS_PER_KWART = 4;
-const BASE_TICK_WIDTH = 18;
+const BASE_TICK_WIDTH = 20;
 const MATEN = 8;
-const START_MARGIN = 55;
-const MAAT_PADDING = 8;
-const STAFF_TOP = 65;
-const STAFF_STEP_BASE = 8;
-const TAB_GAP_BASE = 20;
+const START_MARGIN = 62;
+const MAAT_PADDING = 10;
+const STAFF_TOP = 70;
+const BASE_STAFF_STEP = 8;
+const BASE_TAB_GAP = 20;
 const TAB_STRINGS = 4;
-const GHOST_OFFSET = 90;
+const GHOST_OFFSET = 88;
 
-function TICK_WIDTH() { return BASE_TICK_WIDTH * zoomFactor; }
-function STAFF_STEP() { return STAFF_STEP_BASE * zoomFactor; }
-function TAB_TOP() { return STAFF_TOP + 17 * STAFF_STEP() + 30; }
-function TAB_GAP() { return TAB_GAP_BASE * zoomFactor; }
-function CANVAS_H() { return TAB_TOP() + TAB_STRINGS * TAB_GAP() + 40; }
-function maatBreedte() { return maatTeller * TICKS_PER_KWART * TICK_WIDTH() + MAAT_PADDING * 2; }
-function totaleTicks() { return MATEN * maatTeller * TICKS_PER_KWART; }
+function TW()  { return BASE_TICK_WIDTH * zoomFactor; }
+function SS()  { return BASE_STAFF_STEP * zoomFactor; }
+function TT()  { return STAFF_TOP + 17 * SS() + 35; }
+function TG()  { return BASE_TAB_GAP * zoomFactor; }
+function CH()  { return TT() + TAB_STRINGS * TG() + 45; }
+function MB()  { return maatTeller * TICKS_PER_KWART * TW() + MAAT_PADDING * 2; }
+function TOT() { return MATEN * maatTeller * TICKS_PER_KWART; }
 
 function duurInTicks(d) {
   if (d===1)  return TICKS_PER_KWART*4;
@@ -163,22 +166,26 @@ function duurInTicks(d) {
 
 function tickNaarX(tick) {
   const maat = Math.floor(tick / (maatTeller * TICKS_PER_KWART));
-  const binnenMaat = tick % (maatTeller * TICKS_PER_KWART);
-  return START_MARGIN + maat * maatBreedte() + MAAT_PADDING + binnenMaat * TICK_WIDTH() - scrollX;
+  const binnen = tick % (maatTeller * TICKS_PER_KWART);
+  return START_MARGIN + maat * MB() + MAAT_PADDING + binnen * TW() - scrollX;
 }
 
 function xNaarTick(clientX) {
   const x = clientX + scrollX - START_MARGIN;
-  const maat = Math.floor(x / maatBreedte());
-  const binnenMaat = Math.max(0, x - maat * maatBreedte() - MAAT_PADDING);
-  const rawTick = maat * maatTeller * TICKS_PER_KWART + binnenMaat / TICK_WIDTH();
+  const maat = Math.max(0, Math.floor(x / MB()));
+  const binnen = Math.max(0, x - maat * MB() - MAAT_PADDING);
+  const rawTick = maat * maatTeller * TICKS_PER_KWART + binnen / TW();
   const snap = duurInTicks(activeDuur);
-  return Math.max(0, Math.min(totaleTicks() - 1, Math.round(rawTick / snap) * snap));
+  const snapped = Math.round(rawTick / snap) * snap;
+  // Zorg dat noot binnen de maat valt
+  const maatStart = maat * maatTeller * TICKS_PER_KWART;
+  const maatEind = maatStart + maatTeller * TICKS_PER_KWART - snap;
+  return Math.max(0, Math.min(TOT() - snap, Math.max(maatStart, Math.min(maatEind, snapped))));
 }
 
 function yNaarNoteIndex(clientY) {
   const y = clientY - GHOST_OFFSET;
-  const idx = Math.round((y - STAFF_TOP) / STAFF_STEP());
+  const idx = Math.round((y - STAFF_TOP) / SS());
   return Math.max(0, Math.min(noteMap.length - 1, idx));
 }
 
@@ -233,13 +240,13 @@ const ctx = canvas.getContext("2d");
 
 function herbereken() {
   canvas.width = window.innerWidth;
-  canvas.height = Math.max(CANVAS_H(), window.innerHeight - 80);
+  canvas.height = Math.max(CH(), window.innerHeight - 80);
 }
 herbereken();
 window.addEventListener("resize", herbereken);
 
-function zoomIn()  { zoomFactor = Math.min(3.0, zoomFactor + 0.2); herbereken(); }
-function zoomOut() { zoomFactor = Math.max(0.4, zoomFactor - 0.2); herbereken(); }
+function zoomIn()  { zoomFactor = Math.min(3.0, parseFloat((zoomFactor+0.2).toFixed(1))); herbereken(); }
+function zoomOut() { zoomFactor = Math.max(0.4, parseFloat((zoomFactor-0.2).toFixed(1))); herbereken(); }
 
 function setTool(t) {
   activeTool = t;
@@ -266,9 +273,9 @@ function handleBGUpload(input) {
   const reader = new FileReader();
   reader.onload = function(ev) {
     bgImage = new Image();
-    bgImage.onload = function() { setStatus("Achtergrond foto geladen"); };
+    bgImage.onload = function() { setStatus("Achtergrond geladen"); };
     bgImage.src = ev.target.result;
-    document.getElementById("opacity-bar").classList.add("open");
+    document.getElementById("bg-controls").classList.add("open");
   };
   reader.readAsDataURL(f);
   input.value = "";
@@ -276,11 +283,12 @@ function handleBGUpload(input) {
 
 function setBGOpacity(v) { bgOpacity = parseInt(v) / 100; }
 
-function verwijderBG() {
+document.getElementById("bgVerwijderBtn").addEventListener("touchend", function(e) {
+  e.preventDefault();
   bgImage = null;
-  document.getElementById("opacity-bar").classList.remove("open");
+  document.getElementById("bg-controls").classList.remove("open");
   setStatus("Achtergrond verwijderd");
-}
+});
 
 function openPopup(type) {
   setTool(type);
@@ -304,64 +312,102 @@ function openPopup(type) {
   document.getElementById("popup").classList.add("open");
 }
 
-function sluitPopup() {
-  document.getElementById("popup").classList.remove("open");
-}
+function sluitPopup() { document.getElementById("popup").classList.remove("open"); }
 
 document.getElementById("clearBtn").addEventListener("touchend", function(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  notes = [];
-  setStatus("Gewist");
+  e.preventDefault(); e.stopPropagation();
+  notes = []; setStatus("Gewist");
 });
 
 // Tekenen
+function drawFSleutel(x, y, hoogte) {
+  ctx.save();
+  // Teken F-sleutel met canvas
+  const h = hoogte;
+  const w = h * 0.55;
+  ctx.strokeStyle = PINK;
+  ctx.fillStyle = PINK;
+  ctx.lineWidth = h * 0.06;
+
+  // Hoofdcirkel
+  ctx.beginPath();
+  ctx.arc(x + w*0.45, y + h*0.18, h*0.13, 0, Math.PI*2);
+  ctx.fill();
+
+  // Lange gebogen lijn
+  ctx.beginPath();
+  ctx.moveTo(x + w*0.45, y + h*0.04);
+  ctx.bezierCurveTo(x + w*1.1, y + h*0.04, x + w*1.1, y + h*0.4, x + w*0.45, y + h*0.55);
+  ctx.bezierCurveTo(x - w*0.1, y + h*0.7, x + w*0.1, y + h*0.95, x + w*0.45, y + h*0.95);
+  ctx.stroke();
+
+  // Twee puntjes rechts
+  ctx.beginPath();
+  ctx.arc(x + w*1.15, y + h*0.28, h*0.045, 0, Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x + w*1.15, y + h*0.42, h*0.045, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 function drawStaff() {
   const W = canvas.width;
-  const ss = STAFF_STEP();
-  const tt = TAB_TOP();
-  const tg = TAB_GAP();
+  const ss = SS();
+  const tt = TT();
+  const tg = TG();
+  const mb = MB();
 
-  // Achtergrond foto
+  // Achtergrond foto -- originele verhouding bewaren
   if (bgImage) {
     ctx.save();
     ctx.globalAlpha = bgOpacity;
-    const ratio = bgImage.height / bgImage.width;
-    const bH = Math.min(tt - STAFF_TOP + TAB_STRINGS * tg, W * ratio);
-    ctx.drawImage(bgImage, 0, STAFF_TOP, W, bH);
+    const beschikbaarH = tt + TAB_STRINGS * tg - STAFF_TOP + 20;
+    const beschikbaarW = W;
+    const fotoRatio = bgImage.width / bgImage.height;
+    let tW = beschikbaarW;
+    let tH = tW / fotoRatio;
+    if (tH > beschikbaarH) { tH = beschikbaarH; tW = tH * fotoRatio; }
+    const ox = (W - tW) / 2;
+    ctx.drawImage(bgImage, ox, STAFF_TOP - 5, tW, tH);
     ctx.restore();
   }
 
-  // Afwisselende maat achtergrond
+  // Afwisselende maat achtergronden
   for (let m = 0; m < MATEN; m++) {
     const x1 = tickNaarX(m * maatTeller * TICKS_PER_KWART);
     const x2 = tickNaarX((m+1) * maatTeller * TICKS_PER_KWART);
-    ctx.fillStyle = m % 2 === 0 ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0)";
-    ctx.fillRect(x1, STAFF_TOP - 20, x2 - x1, tt + TAB_STRINGS * tg + 15 - (STAFF_TOP - 20));
+    ctx.fillStyle = m % 2 === 0 ? "rgba(255,255,255,0.015)" : "rgba(0,0,0,0)";
+    ctx.fillRect(x1, STAFF_TOP - 22, x2 - x1, tt + TAB_STRINGS * tg + 15 - STAFF_TOP + 22);
   }
 
-  // Maatstrepen
+  // Maatstrepen -- duidelijk
   for (let m = 0; m <= MATEN; m++) {
     const x = tickNaarX(m * maatTeller * TICKS_PER_KWART);
-    ctx.strokeStyle = m === 0 || m === MATEN ? "#888" : "#555";
-    ctx.lineWidth = m === 0 || m === MATEN ? 2 : 1.5;
+    ctx.strokeStyle = m === 0 || m === MATEN ? "#999" : "#666";
+    ctx.lineWidth = m === 0 || m === MATEN ? 2.5 : 1.5;
     ctx.beginPath();
-    ctx.moveTo(x, STAFF_TOP - 18);
+    ctx.moveTo(x, STAFF_TOP - 20);
     ctx.lineTo(x, tt + TAB_STRINGS * tg + 8);
     ctx.stroke();
+
     if (m < MATEN) {
       ctx.fillStyle = "#666"; ctx.font = "bold 10px Arial"; ctx.textAlign = "left";
-      ctx.fillText("" + (m+1), x + 5, STAFF_TOP - 5);
+      ctx.fillText("" + (m+1), x + 5, STAFF_TOP - 6);
     }
   }
 
-  // Beat lijnen
+  // Beat lijnen binnen maat
   for (let m = 0; m < MATEN; m++) {
     for (let b = 1; b < maatTeller; b++) {
       const tick = m * maatTeller * TICKS_PER_KWART + b * TICKS_PER_KWART;
       const x = tickNaarX(tick);
-      ctx.strokeStyle = "#2a2a2a"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, STAFF_TOP); ctx.lineTo(x, STAFF_TOP + 10 * ss); ctx.stroke();
+      ctx.strokeStyle = "#252525"; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, STAFF_TOP);
+      ctx.lineTo(x, STAFF_TOP + 10 * ss);
+      ctx.stroke();
     }
   }
 
@@ -372,11 +418,9 @@ function drawStaff() {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   });
 
-  // Bassleutel (F-sleutel)
-  ctx.fillStyle = PINK;
-  ctx.font = Math.round(44 * zoomFactor) + "px serif";
-  ctx.textAlign = "left";
-  ctx.fillText("?", 4, STAFF_TOP + 9 * ss);
+  // F-sleutel tekenen
+  const sleutelH = 10 * ss;
+  drawFSleutel(4, STAFF_TOP + ss, sleutelH);
 
   // Nootlabels
   ctx.font = "8px Arial"; ctx.fillStyle = "#3a3a3a";
@@ -395,10 +439,11 @@ function drawStaff() {
   ["T","A","B",""].forEach(function(l, i) { ctx.fillText(l, 5, tt + i * tg + 4); });
 
   // Scroll indicator
-  const totBreedte = MATEN * maatBreedte() + START_MARGIN;
+  const totBreedte = MATEN * mb + START_MARGIN + 20;
   if (totBreedte > W) {
     const barW = Math.max(30, (W / totBreedte) * W);
-    const barX = (scrollX / (totBreedte - W)) * (W - barW);
+    const maxScroll = totBreedte - W;
+    const barX = maxScroll > 0 ? (scrollX / maxScroll) * (W - barW) : 0;
     ctx.fillStyle = "#1a1a1a"; ctx.fillRect(0, canvas.height - 6, W, 6);
     ctx.fillStyle = "#444"; ctx.fillRect(barX, canvas.height - 6, barW, 6);
   }
@@ -407,21 +452,25 @@ function drawStaff() {
   if (isPlaying) {
     const x = tickNaarX(currentTick);
     ctx.strokeStyle = PINK; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(x, STAFF_TOP - 18); ctx.lineTo(x, tt + TAB_STRINGS * tg + 8); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, STAFF_TOP - 20);
+    ctx.lineTo(x, tt + TAB_STRINGS * tg + 8);
+    ctx.stroke();
   }
 }
 
 function drawNootVorm(cx, cy, ni, duur, kleur, alpha) {
   ctx.save();
   if (alpha !== undefined) ctx.globalAlpha = alpha;
-  const ss = STAFF_STEP();
+  const ss = SS();
   const gevuld = duur >= 4;
   const isHoog = ni <= 8;
   const sLen = ss * 3.5;
   const sx = isHoog ? cx + 6 : cx - 6;
   const sy = isHoog ? cy - sLen : cy + sLen;
 
-  ctx.beginPath(); ctx.ellipse(cx, cy, 7*zoomFactor, 5*zoomFactor, -0.3, 0, Math.PI*2);
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 7*zoomFactor, 5*zoomFactor, -0.3, 0, Math.PI*2);
   if (gevuld) { ctx.fillStyle = kleur; ctx.fill(); }
   else { ctx.strokeStyle = kleur; ctx.lineWidth = 1.5; ctx.stroke(); }
 
@@ -449,13 +498,13 @@ function drawNootVorm(cx, cy, ni, duur, kleur, alpha) {
   if (cy < s1y - 2) {
     for (let ly = s1y - ss; ly >= cy - ss; ly -= ss) {
       ctx.strokeStyle = kleur; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(cx - 10, ly); ctx.lineTo(cx + 10, ly); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-10, ly); ctx.lineTo(cx+10, ly); ctx.stroke();
     }
   }
   if (cy > s5y + 2) {
     for (let ly = s5y + ss; ly <= cy + ss; ly += ss) {
       ctx.strokeStyle = kleur; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(cx - 10, ly); ctx.lineTo(cx + 10, ly); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-10, ly); ctx.lineTo(cx+10, ly); ctx.stroke();
     }
   }
   ctx.restore();
@@ -465,16 +514,15 @@ function drawRust(cx, duur, kleur, alpha) {
   ctx.save();
   if (alpha !== undefined) ctx.globalAlpha = alpha;
   ctx.fillStyle = kleur; ctx.strokeStyle = kleur;
-  const ss = STAFF_STEP();
+  const ss = SS();
   const midY = STAFF_TOP + 5 * ss;
   ctx.lineWidth = 2;
 
   if (duur === 1) {
-    ctx.fillRect(cx - 10*zoomFactor, midY - ss, 20*zoomFactor, 7*zoomFactor);
+    ctx.fillRect(cx - 10*zoomFactor, midY - ss*1.2, 20*zoomFactor, 7*zoomFactor);
   } else if (duur === 2) {
     ctx.fillRect(cx - 10*zoomFactor, midY, 20*zoomFactor, 7*zoomFactor);
   } else if (duur === 4) {
-    // Kwart rust -- zigzag
     ctx.beginPath();
     ctx.moveTo(cx, midY - 12*zoomFactor);
     ctx.lineTo(cx + 6*zoomFactor, midY - 5*zoomFactor);
@@ -483,20 +531,20 @@ function drawRust(cx, duur, kleur, alpha) {
     ctx.lineTo(cx, midY + 12*zoomFactor);
     ctx.stroke();
   } else if (duur === 8) {
-    ctx.beginPath(); ctx.arc(cx + 3, midY - 7*zoomFactor, 4*zoomFactor, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(cx + 3, midY - 7*zoomFactor); ctx.lineTo(cx - 5*zoomFactor, midY + 9*zoomFactor); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx+3, midY-7*zoomFactor, 4*zoomFactor, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx+3, midY-7*zoomFactor); ctx.lineTo(cx-5*zoomFactor, midY+9*zoomFactor); ctx.stroke();
   } else if (duur === 16) {
-    ctx.beginPath(); ctx.arc(cx + 3, midY - 10*zoomFactor, 3*zoomFactor, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(cx + 3, midY - 2*zoomFactor, 3*zoomFactor, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(cx + 3, midY - 10*zoomFactor); ctx.lineTo(cx - 5*zoomFactor, midY + 9*zoomFactor); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx+3, midY-10*zoomFactor, 3*zoomFactor, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx+3, midY-2*zoomFactor, 3*zoomFactor, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx+3, midY-10*zoomFactor); ctx.lineTo(cx-5*zoomFactor, midY+9*zoomFactor); ctx.stroke();
   }
   ctx.restore();
 }
 
 function drawNotes() {
-  const ss = STAFF_STEP();
-  const tt = TAB_TOP();
-  const tg = TAB_GAP();
+  const ss = SS();
+  const tt = TT();
+  const tg = TG();
   notes.forEach(function(n) {
     const x = tickNaarX(n.tick);
     if (x < -30 || x > canvas.width + 30) return;
@@ -508,7 +556,7 @@ function drawNotes() {
       drawNootVorm(x, y, ni, n.duur, "white");
       const t = tabMap[n.note];
       if (t) {
-        const ty = tt + (t.s - 1) * tg;
+        const ty = tt + (t.s-1) * tg;
         ctx.fillStyle = "#151515"; ctx.fillRect(x-9, ty-8, 18, 16);
         ctx.fillStyle = CYAN; ctx.font = "bold 12px Arial"; ctx.textAlign = "center";
         ctx.fillText(t.f, x, ty+5);
@@ -520,7 +568,7 @@ function drawNotes() {
 function drawGhost() {
   if (!ghost) return;
   const x = tickNaarX(ghost.tick);
-  const ss = STAFF_STEP();
+  const ss = SS();
   if (ghost.isRust) {
     drawRust(x, activeDuur, PINK, 0.6);
   } else {
@@ -528,8 +576,8 @@ function drawGhost() {
     const y = STAFF_TOP + ni * ss;
     drawNootVorm(x, y, ni, activeDuur, PINK, 0.75);
     ctx.save(); ctx.globalAlpha = 0.2; ctx.strokeStyle = PINK;
-    ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
-    ctx.beginPath(); ctx.moveTo(x, y + 8); ctx.lineTo(x, y + GHOST_OFFSET); ctx.stroke();
+    ctx.lineWidth = 1; ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(x, y+8); ctx.lineTo(x, y+GHOST_OFFSET); ctx.stroke();
     ctx.setLineDash([]); ctx.restore();
   }
 }
@@ -542,7 +590,7 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-// Touch handling
+// Touch
 canvas.addEventListener("contextmenu", function(e) { e.preventDefault(); });
 
 let touchStartX = 0, touchStartScrollX = 0;
@@ -558,10 +606,7 @@ canvas.addEventListener("touchstart", function(e) {
   e.preventDefault();
 
   if (e.touches.length === 2) {
-    isPinching = true;
-    isScrolling = false;
-    isTouching = false;
-    ghost = null;
+    isPinching = true; isTouching = false; ghost = null;
     pinchStartDist = getTouchDist(e);
     pinchStartZoom = zoomFactor;
     touchStartX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
@@ -569,23 +614,15 @@ canvas.addEventListener("touchstart", function(e) {
     return;
   }
 
-  if (!audioUnlocked) {
-    audioUnlocked = true;
-    getAudio();
-  }
-
-  isPinching = false;
-  isScrolling = false;
-  isTouching = true;
+  if (!audioUnlocked) { audioUnlocked = true; getAudio(); }
+  isPinching = false; isTouching = true;
 
   const t = e.touches[0];
   const tick = xNaarTick(t.clientX);
   const ni = yNaarNoteIndex(t.clientY);
 
   if (activeTool === "wis") {
-    notes = notes.filter(function(n) {
-      return Math.abs(tickNaarX(n.tick) - t.clientX) > 20;
-    });
+    notes = notes.filter(function(n) { return Math.abs(tickNaarX(n.tick) - t.clientX) > 20; });
     return;
   }
   if (activeTool === "rust") {
@@ -601,17 +638,13 @@ canvas.addEventListener("touchmove", function(e) {
 
   if (e.touches.length === 2) {
     if (isPinching) {
-      // Zoom
       const newDist = getTouchDist(e);
-      const scale = newDist / pinchStartDist;
-      zoomFactor = Math.max(0.4, Math.min(3.0, pinchStartZoom * scale));
+      zoomFactor = Math.max(0.4, Math.min(3.0, pinchStartZoom * (newDist / pinchStartDist)));
       herbereken();
     }
-    // Scroll met 2 vingers
     const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    const delta = touchStartX - midX;
-    const maxScroll = Math.max(0, MATEN * maatBreedte() + START_MARGIN - canvas.width);
-    scrollX = Math.max(0, Math.min(maxScroll, touchStartScrollX + delta));
+    const maxScroll = Math.max(0, MATEN * MB() + START_MARGIN + 20 - canvas.width);
+    scrollX = Math.max(0, Math.min(maxScroll, touchStartScrollX + (touchStartX - midX)));
     return;
   }
 
@@ -632,7 +665,6 @@ canvas.addEventListener("touchmove", function(e) {
 canvas.addEventListener("touchend", function(e) {
   e.preventDefault();
   isPinching = false;
-
   if (isTouching && ghost && activeTool !== "wis") {
     const bestaand = notes.findIndex(function(n) {
       return n.tick === ghost.tick && (n.isRust ? ghost.isRust : n.note === ghost.note);
@@ -640,8 +672,7 @@ canvas.addEventListener("touchend", function(e) {
     if (bestaand !== -1) { notes.splice(bestaand, 1); }
     else { notes.push(Object.assign({}, ghost)); }
   }
-  ghost = null;
-  isTouching = false;
+  ghost = null; isTouching = false;
 }, { passive: false });
 
 function playBassTone(noteName) {
@@ -653,10 +684,10 @@ function playBassTone(noteName) {
     osc.type = "triangle";
     osc.frequency.setValueAtTime(frequencies[noteName], ac.currentTime);
     gain.gain.setValueAtTime(0, ac.currentTime);
-    gain.gain.linearRampToValueAtTime(0.35, ac.currentTime + 0.02);
+    gain.gain.linearRampToValueAtTime(0.3, ac.currentTime + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.5);
     osc.connect(gain); gain.connect(ac.destination);
-    osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.5);
+    osc.start(); osc.stop(ac.currentTime + 0.5);
   } catch(e) {}
 }
 
@@ -675,7 +706,7 @@ function togglePlayback() {
       notes.filter(function(n) { return !n.isRust && n.tick === currentTick; })
            .forEach(function(h) { playBassTone(h.note); });
       currentTick++;
-      if (currentTick >= totaleTicks()) currentTick = 0;
+      if (currentTick >= TOT()) currentTick = 0;
     }, msPerTick);
   }
 }
@@ -683,15 +714,13 @@ function togglePlayback() {
 async function handleAIUpload(input) {
   const bestand = input.files[0];
   if (!bestand || aiBezig) return;
-  aiBezig = true;
-  setStatus("🤖 AI analyseert...");
+  aiBezig = true; setStatus("🤖 AI analyseert...");
   const reader = new FileReader();
   reader.onload = async function(ev) {
     const base64 = ev.target.result.split(",")[1];
     try {
       const response = await fetch("https://analyseertablature-dia7q5dlaq-uc.a.run.app", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ base64Foto: base64, modus: "noten" })
       });
       const data = await response.json();
@@ -702,9 +731,7 @@ async function handleAIUpload(input) {
           }
         });
         setStatus("✓ " + data.noten.length + " noten geïmporteerd!");
-      } else {
-        setStatus("Geen noten herkend.");
-      }
+      } else { setStatus("Geen noten herkend."); }
     } catch(err) { setStatus("Fout bij AI."); }
     aiBezig = false; input.value = "";
   };
