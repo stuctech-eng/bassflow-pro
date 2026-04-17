@@ -6,48 +6,48 @@
   <title>BassFlow Pro - Editor</title>
   <style>
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body { margin: 0; background: #0d0d0d; color: white; font-family: sans-serif; overflow: hidden; overscroll-behavior: contain; user-select: none; -webkit-user-select: none; display: flex; flex-direction: column; height: 100vh; }
+    body { margin: 0; background: #fff; color: #111; font-family: sans-serif; overflow: hidden; overscroll-behavior: contain; user-select: none; -webkit-user-select: none; display: flex; flex-direction: column; height: 100vh; }
 
-    #canvas-area { flex: 1; overflow: hidden; position: relative; }
-    canvas { background: #151515; display: block; touch-action: none; }
+    #canvas-area { flex: 1; overflow: hidden; position: relative; background: #fff; }
+    canvas { background: #fff; display: block; touch-action: none; }
 
-    #bottombar { background: #111; border-top: 1px solid #222; padding: 8px 10px; flex-shrink: 0; }
+    #bottombar { background: #f8f8f8; border-top: 1px solid #ddd; padding: 8px 10px; flex-shrink: 0; }
     #row1 { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
     #row2 { display: flex; align-items: center; gap: 6px; }
 
-    .tb { background: #1a1a1a; color: #aaa; border: 1px solid #333; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+    .tb { background: #fff; color: #555; border: 1px solid #ddd; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
     .tb.active { background: #FF2D7A; color: #fff; border-color: #FF2D7A; }
     .tb.play { background: #FF2D7A; color: #fff; border-color: #FF2D7A; min-width: 72px; font-size: 13px; }
-    .tb.play.playing { background: #1a1a1a; color: #FF2D7A; border-color: #FF2D7A; }
-    .tb.danger { color: #E53935; border-color: #444; }
-    .tb.midi { color: #ffaa00; border-color: #444; }
-    .tb.ai { color: #8B2FC9; border-color: #444; }
-    .tb.bg { color: #00aaff; border-color: #444; }
-    .sep { width: 1px; height: 28px; background: #2a2a2a; flex-shrink: 0; margin: 0 2px; }
+    .tb.play.playing { background: #fff; color: #FF2D7A; border-color: #FF2D7A; }
+    .tb.danger { color: #E53935; border-color: #ddd; }
+    .tb.midi { color: #cc8800; border-color: #ddd; }
+    .tb.ai { color: #8B2FC9; border-color: #ddd; }
+    .tb.bg { color: #0088cc; border-color: #ddd; }
+    .sep { width: 1px; height: 28px; background: #ddd; flex-shrink: 0; margin: 0 2px; }
     label.tb { display: inline-flex; align-items: center; justify-content: center; }
     input[type="file"] { display: none; }
 
     #bpm-wrap { display: flex; align-items: center; gap: 5px; flex: 1; }
     #bpm-label { font-size: 10px; color: #FF2D7A; font-weight: 800; min-width: 50px; }
     #bpm-slider { flex: 1; accent-color: #FF2D7A; min-width: 60px; }
-    #maat-select { background: #1a1a1a; color: #aaa; border: 1px solid #333; padding: 7px 6px; border-radius: 8px; font-size: 11px; font-weight: 700; }
+    #maat-select { background: #fff; color: #555; border: 1px solid #ddd; padding: 7px 6px; border-radius: 8px; font-size: 11px; font-weight: 700; }
 
-    #bg-controls { display: none; position: fixed; bottom: 110px; left: 10px; right: 10px; background: #111; border: 1px solid #333; border-radius: 8px; padding: 8px 12px; z-index: 50; align-items: center; gap: 8px; }
+    #bg-controls { display: none; position: fixed; bottom: 110px; left: 10px; right: 10px; background: #f8f8f8; border: 1px solid #ddd; border-radius: 8px; padding: 8px 12px; z-index: 50; align-items: center; gap: 8px; }
     #bg-controls.open { display: flex; }
     #opacity-slider { flex: 1; accent-color: #FF2D7A; }
 
-    #popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 200; align-items: center; justify-content: center; flex-direction: column; padding: 20px; }
+    #popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; flex-direction: column; padding: 20px; }
     #popup.open { display: flex; }
     #popup-title { font-size: 13px; font-weight: 800; color: #FF2D7A; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
     #popup-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 300px; }
-    .popup-item { background: #1a1a1a; border: 1.5px solid #333; border-radius: 10px; padding: 14px 8px; text-align: center; cursor: pointer; }
-    .popup-item.active-item { border-color: #FF2D7A; background: #2a0a14; }
-    .popup-item .pi-symbool { font-size: 26px; color: white; line-height: 1.4; }
+    .popup-item { background: #fff; border: 1.5px solid #ddd; border-radius: 10px; padding: 14px 8px; text-align: center; cursor: pointer; }
+    .popup-item.active-item { border-color: #FF2D7A; background: #fff0f5; }
+    .popup-item .pi-symbool { font-size: 26px; color: #111; line-height: 1.4; }
     .popup-item .pi-naam { font-size: 10px; color: #888; margin-top: 4px; font-weight: 700; }
-    .popup-item .pi-tellen { font-size: 9px; color: #555; margin-top: 2px; }
-    #popup-sluit { margin-top: 16px; background: #333; color: #fff; border: none; border-radius: 20px; padding: 10px 28px; font-size: 13px; font-weight: 800; cursor: pointer; }
+    .popup-item .pi-tellen { font-size: 9px; color: #bbb; margin-top: 2px; }
+    #popup-sluit { margin-top: 16px; background: #eee; color: #555; border: none; border-radius: 20px; padding: 10px 28px; font-size: 13px; font-weight: 800; cursor: pointer; }
 
-    #status-msg { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(255,45,122,0.9); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; display: none; z-index: 300; }
+    #status-msg { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(255,45,122,0.9); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; display: none; z-index: 300; white-space: nowrap; }
     #status-msg.show { display: block; }
   </style>
 </head>
@@ -91,7 +91,7 @@
 </div>
 
 <div id="bg-controls">
-  <span style="font-size:10px;color:#aaa;white-space:nowrap">📷</span>
+  <span style="font-size:10px;color:#888;white-space:nowrap">📷 Opacity</span>
   <input type="range" id="opacity-slider" min="0" max="100" value="25" oninput="setBGOpacity(this.value)">
   <button class="tb danger" style="padding:5px 9px;font-size:11px" id="bgVerwijderBtn">✕</button>
 </div>
@@ -106,7 +106,9 @@
 
 <script>
 const PINK = "#FF2D7A";
-const CYAN = "#00d4ff";
+const CYAN = "#0066cc";
+const BLACK = "#111";
+const GRAY = "#999";
 
 let audioCtx = null, audioUnlocked = false;
 function getAudio() {
@@ -353,7 +355,11 @@ function drawStaff() {
   const tt = TT();
   const tg = TG();
 
-  // Achtergrond foto -- volle breedte, eigen verhouding
+  // Witte achtergrond
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, W, H);
+
+  // Achtergrond foto
   if (bgImage) {
     ctx.save();
     ctx.globalAlpha = bgOpacity;
@@ -366,15 +372,15 @@ function drawStaff() {
   for (let m = 0; m <= MATEN; m++) {
     const x = maatstreepX(m);
     if (x < -5 || x > W + 5) continue;
-    ctx.strokeStyle = m === 0 || m === MATEN ? "#999" : "#666";
+    ctx.strokeStyle = "#333";
     ctx.lineWidth = m === 0 || m === MATEN ? 2.5 : 1.5;
     ctx.beginPath();
     ctx.moveTo(x, STAFF_TOP - 5);
     ctx.lineTo(x, tt + TAB_STRINGS * tg + 5);
     ctx.stroke();
     if (m < MATEN) {
-      ctx.fillStyle = "#555"; ctx.font = "bold 9px Arial"; ctx.textAlign = "left";
-      ctx.fillText("" + (m+1), x + 3, STAFF_TOP - 2);
+      ctx.fillStyle = "#999"; ctx.font = "bold 9px Arial"; ctx.textAlign = "left";
+      ctx.fillText("" + (m+1), x + 3, STAFF_TOP - 3);
     }
   }
 
@@ -384,13 +390,13 @@ function drawStaff() {
     for (let b = 1; b < maatTeller; b++) {
       const x = maatstreepX(m) + (b + 1) * stapBreedte;
       if (x < 0 || x > W) continue;
-      ctx.strokeStyle = "#252525"; ctx.lineWidth = 1;
+      ctx.strokeStyle = "#ddd"; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(x, STAFF_TOP); ctx.lineTo(x, STAFF_TOP + 10 * ss); ctx.stroke();
     }
   }
 
   // 5 notenbalkslijnen
-  ctx.strokeStyle = "#777"; ctx.lineWidth = 1;
+  ctx.strokeStyle = "#333"; ctx.lineWidth = 1;
   STAFF_LINE_INDICES.forEach(function(i) {
     const y = STAFF_TOP + i * ss;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
@@ -399,8 +405,8 @@ function drawStaff() {
   // F-sleutel
   drawFSleutel(4, STAFF_TOP + ss * 0.5, ss * 9);
 
-  // Nootlabels
-  ctx.font = "8px Arial"; ctx.fillStyle = "#3a3a3a";
+  // Nootlabels links
+  ctx.font = "8px Arial"; ctx.fillStyle = "#ccc";
   noteMap.forEach(function(n, i) {
     ctx.textAlign = "right";
     ctx.fillText(noteNamen[n], START_MARGIN - 3, STAFF_TOP + i * ss + 3);
@@ -409,9 +415,9 @@ function drawStaff() {
   // TAB lijnen
   ["G","D","A","E"].forEach(function(l, i) {
     const y = tt + i * tg;
-    ctx.strokeStyle = "#3a3a3a"; ctx.lineWidth = 1;
+    ctx.strokeStyle = "#999"; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-    ctx.fillStyle = "#555"; ctx.font = "bold 9px Arial"; ctx.textAlign = "left";
+    ctx.fillStyle = "#999"; ctx.font = "bold 9px Arial"; ctx.textAlign = "left";
     ctx.fillText(l, 5, y + 4);
   });
 
@@ -421,8 +427,8 @@ function drawStaff() {
     const barW = Math.max(30, (W / totBreedte) * W);
     const maxScroll = totBreedte - W;
     const barX = maxScroll > 0 ? (scrollX / maxScroll) * (W - barW) : 0;
-    ctx.fillStyle = "#1a1a1a"; ctx.fillRect(0, H - 4, W, 4);
-    ctx.fillStyle = "#444"; ctx.fillRect(barX, H - 4, barW, 4);
+    ctx.fillStyle = "#eee"; ctx.fillRect(0, H - 4, W, 4);
+    ctx.fillStyle = "#bbb"; ctx.fillRect(barX, H - 4, barW, 4);
   }
 
   // Playhead
@@ -518,15 +524,15 @@ function drawNotes() {
     const x = beatNaarX(n.maat, n.beat);
     if (x < -30 || x > canvas.width + 30) return;
     if (n.isRust) {
-      drawRust(x, n.duur, "white");
+      drawRust(x, n.duur, BLACK);
     } else {
       const ni = noteMap.indexOf(n.note);
       const y = nootY(ni);
-      drawNootVorm(x, y, ni, n.duur, "white");
+      drawNootVorm(x, y, ni, n.duur, BLACK);
       const t = tabMap[n.note];
       if (t) {
         const ty = tt + (t.s-1) * tg;
-        ctx.fillStyle = "#151515"; ctx.fillRect(x-9, ty-8, 18, 16);
+        ctx.fillStyle = "#fff"; ctx.fillRect(x-9, ty-8, 18, 16);
         ctx.fillStyle = CYAN; ctx.font = "bold 12px Arial"; ctx.textAlign = "center";
         ctx.fillText(t.f, x, ty+5);
       }
@@ -538,11 +544,11 @@ function drawGhost() {
   if (!ghost) return;
   const x = beatNaarX(ghost.maat, ghost.beat);
   if (ghost.isRust) {
-    drawRust(x, activeDuur, PINK, 0.6);
+    drawRust(x, activeDuur, PINK, 0.5);
   } else {
     const ni = noteMap.indexOf(ghost.note);
     const y = nootY(ni);
-    drawNootVorm(x, y, ni, activeDuur, PINK, 0.75);
+    drawNootVorm(x, y, ni, activeDuur, PINK, 0.6);
     ctx.save(); ctx.globalAlpha = 0.2; ctx.strokeStyle = PINK;
     ctx.lineWidth = 1; ctx.setLineDash([3,4]);
     ctx.beginPath(); ctx.moveTo(x, y+8); ctx.lineTo(x, y+GHOST_OFFSET); ctx.stroke();
