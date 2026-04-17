@@ -5,96 +5,102 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>BassFlow Pro - Editor</title>
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; background: #0d0d0d; color: white; font-family: sans-serif; overflow: hidden; overscroll-behavior: contain; user-select: none; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; background: #0d0d0d; color: white; font-family: sans-serif; overflow: hidden; overscroll-behavior: contain; user-select: none; -webkit-user-select: none; }
 
-    #toolbar { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: #111; border-bottom: 1px solid #222; overflow-x: auto; white-space: nowrap; }
+    #toolbar { display: flex; align-items: center; gap: 5px; padding: 8px 10px; background: #111; border-bottom: 1px solid #222; overflow-x: auto; white-space: nowrap; height: 52px; }
     #toolbar::-webkit-scrollbar { display: none; }
 
-    .tool-group { display: flex; gap: 4px; align-items: center; padding-right: 8px; border-right: 1px solid #333; margin-right: 2px; }
-    .tool-group:last-child { border-right: none; }
-
-    .tb { background: #1a1a1a; color: #aaa; border: 1px solid #333; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .tb { background: #1a1a1a; color: #aaa; border: 1px solid #333; padding: 7px 11px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
     .tb.active { background: #FF2D7A; color: #fff; border-color: #FF2D7A; }
-    .tb.play { background: #FF2D7A; color: #fff; border-color: #FF2D7A; min-width: 60px; }
-    .tb.play.playing { background: #333; color: #FF2D7A; border-color: #FF2D7A; }
-    .tb.danger { color: #E53935; border-color: #E53935; }
-    .tb.midi { color: #ffaa00; border-color: #ffaa00; }
-    .tb.ai { color: #8B2FC9; border-color: #8B2FC9; background: #1a1a1a; }
-    .tb.ai.active { background: #8B2FC9; color: #fff; }
+    .tb.play { background: #FF2D7A; color: #fff; border-color: #FF2D7A; min-width: 64px; }
+    .tb.play.playing { background: #1a1a1a; color: #FF2D7A; }
+    .tb.danger { color: #E53935; border-color: #444; }
+    .tb.midi { color: #ffaa00; border-color: #444; }
+    .tb.ai { color: #8B2FC9; border-color: #444; }
+    .sep { width: 1px; height: 28px; background: #333; flex-shrink: 0; margin: 0 3px; }
 
-    label.tb { display: inline-flex; align-items: center; }
+    label.tb { display: inline-flex; align-items: center; justify-content: center; }
     input[type="file"] { display: none; }
 
-    #bpm-wrap { display: flex; align-items: center; gap: 6px; }
-    #bpm-label { font-size: 10px; color: #FF2D7A; font-weight: 800; min-width: 52px; }
-    #bpm-slider { width: 70px; accent-color: #FF2D7A; }
+    #bpm-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    #bpm-label { font-size: 10px; color: #FF2D7A; font-weight: 800; min-width: 54px; }
+    #bpm-slider { width: 65px; accent-color: #FF2D7A; }
+    #maat-select { background: #1a1a1a; color: #aaa; border: 1px solid #333; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: 700; }
 
-    #maat-select { background: #1a1a1a; color: #aaa; border: 1px solid #333; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-
-    #canvas-wrap { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+    #canvas-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+    #canvas-scroll::-webkit-scrollbar { height: 3px; }
+    #canvas-scroll::-webkit-scrollbar-thumb { background: #333; }
     canvas { background: #151515; display: block; touch-action: pan-x; }
 
-    #statusbar { position: fixed; bottom: 0; left: 0; right: 0; background: #111; border-top: 1px solid #222; padding: 6px 12px; font-size: 10px; color: #555; display: flex; justify-content: space-between; align-items: center; }
+    /* POPUP */
+    #popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 200; align-items: center; justify-content: center; flex-direction: column; padding: 20px; }
+    #popup.open { display: flex; }
+    #popup-title { font-size: 13px; font-weight: 800; color: #FF2D7A; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
+    #popup-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 300px; }
+    .popup-item { background: #1a1a1a; border: 1.5px solid #333; border-radius: 10px; padding: 14px 8px; text-align: center; cursor: pointer; transition: background 0.1s; }
+    .popup-item.active-item { border-color: #FF2D7A; background: #2a0a14; }
+    .popup-item .pi-symbool { font-size: 22px; color: white; line-height: 1.2; }
+    .popup-item .pi-naam { font-size: 10px; color: #888; margin-top: 4px; font-weight: 700; }
+    .popup-item .pi-tellen { font-size: 9px; color: #555; margin-top: 2px; }
+    #popup-sluit { margin-top: 16px; background: #FF2D7A; color: #fff; border: none; border-radius: 20px; padding: 10px 28px; font-size: 13px; font-weight: 800; cursor: pointer; }
+
+    #statusbar { position: fixed; bottom: 0; left: 0; right: 0; background: #111; border-top: 1px solid #1a1a1a; padding: 5px 12px; font-size: 10px; color: #444; display: flex; justify-content: space-between; height: 28px; align-items: center; }
     #status-msg { color: #FF2D7A; font-weight: 700; font-size: 11px; }
   </style>
 </head>
 <body>
 
 <div id="toolbar">
-  <div class="tool-group">
-    <button class="tb play" id="playBtn" onclick="togglePlayback()">▶ PLAY</button>
-  </div>
-
-  <div class="tool-group">
-    <button class="tb active" id="tool-noot" onclick="setTool('noot')">✏️ Noot</button>
-    <button class="tb" id="tool-rust" onclick="setTool('rust')">-- Rust</button>
-    <button class="tb danger" id="tool-wis" onclick="setTool('wis')">✕ Wis</button>
-  </div>
-
-  <div class="tool-group">
-    <button class="tb active" id="dur-4" onclick="setDuur(4,'♩')">♩</button>
-    <button class="tb" id="dur-2" onclick="setDuur(2,'♩')">𝅗𝅥</button>
-    <button class="tb" id="dur-1" onclick="setDuur(1,'𝅝')">𝅝</button>
-    <button class="tb" id="dur-8" onclick="setDuur(8,'♪')">♪</button>
-    <button class="tb" id="dur-16" onclick="setDuur(16,'𝅘𝅥𝅯')">𝅘𝅥𝅯</button>
-  </div>
-
-  <div class="tool-group">
-    <select id="maat-select" onchange="setMaat(this.value)">
-      <option value="4">4/4</option>
-      <option value="3">3/4</option>
-      <option value="6">6/8</option>
-    </select>
-  </div>
-
-  <div class="tool-group" id="bpm-wrap">
+  <button class="tb play" id="playBtn" onclick="togglePlayback()">▶ PLAY</button>
+  <div class="sep"></div>
+  <button class="tb active" id="tool-noot" onclick="openPopup('noot')">♩ Noot</button>
+  <button class="tb" id="tool-rust" onclick="openPopup('rust')">-- Rust</button>
+  <button class="tb danger" id="tool-wis" onclick="setTool('wis')">✕ Wis</button>
+  <div class="sep"></div>
+  <select id="maat-select" onchange="setMaat(this.value)">
+    <option value="4">4/4</option>
+    <option value="3">3/4</option>
+    <option value="6">6/8</option>
+  </select>
+  <div class="sep"></div>
+  <div id="bpm-wrap">
     <span id="bpm-label">120 BPM</span>
     <input type="range" id="bpm-slider" min="40" max="240" value="120" oninput="setBpm(this.value)">
   </div>
-
-  <div class="tool-group">
-    <label class="tb ai" for="ai-upload">🤖 AI</label>
-    <input type="file" id="ai-upload" accept="image/*" onchange="handleAIUpload(this)">
-    <button class="tb midi" onclick="exportMIDI()">⬇ MIDI</button>
-    <button class="tb danger" onclick="clearNotes()">CLEAR</button>
-  </div>
+  <div class="sep"></div>
+  <label class="tb ai" for="ai-upload">🤖 AI</label>
+  <input type="file" id="ai-upload" accept="image/*" onchange="handleAIUpload(this)">
+  <button class="tb midi" onclick="exportMIDI()">⬇ MIDI</button>
+  <button class="tb danger" onclick="clearNotes()">CLEAR</button>
 </div>
 
-<div id="canvas-wrap">
+<div id="canvas-scroll">
   <canvas id="canvas"></canvas>
 </div>
 
 <div id="statusbar">
   <span id="status-msg"></span>
-  <span id="status-info">BassFlow Pro Editor</span>
+  <span id="status-info">BassFlow Editor v1</span>
+</div>
+
+<!-- POPUP -->
+<div id="popup">
+  <div id="popup-title">Kies nootwaarde</div>
+  <div id="popup-grid"></div>
+  <button id="popup-sluit" onclick="sluitPopup()">Klaar</button>
 </div>
 
 <script>
 const PINK = "#FF2D7A";
 const CYAN = "#00d4ff";
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+// Audio
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function unlockAudio() { if (audioCtx.state === "suspended") audioCtx.resume(); }
+document.addEventListener("touchstart", unlockAudio, { once: true });
+
+// State
 let isPlaying = false, currentTick = 0, playbackTimer = null;
 let activeTool = "noot";
 let activeDuur = 4;
@@ -103,30 +109,34 @@ let maatTeller = 4;
 let notes = [];
 let ghost = null;
 let isTouching = false;
+let touchStartY = 0;
 let aiBezig = false;
 
+// Constanten
 const TICKS_PER_KWART = 4;
-const TICK_WIDTH = 14;
+const TICK_WIDTH = 16;
 const MATEN = 8;
-const startMargin = 60;
-const staffTop = 50;
-const staffLines = [0, 2, 4, 6, 8];
-const STAFF_STEP = 7;
-const tabTop = 220;
+const START_MARGIN = 50;
+const STAFF_TOP = 60;
+const STAFF_STEP = 8;
+const STAFF_LINES = [0, 2, 4, 6, 8]; // lijn indices
+const TAB_TOP = 240;
+const TAB_GAP = 20;
 const TAB_STRINGS = 4;
-const TAB_GAP = 18;
-const canvasH = 380;
+const CANVAS_H = 400;
+const GHOST_OFFSET = 90; // pixels boven vinger
 
+// Noot data
 const noteMap = [
   "g/3","f/3","e/3","d/3","c/3",
   "b/2","a/2","g/2","f/2","e/2",
   "d/2","c/2","b/1","a/1","g/1","f/1","e/1"
 ];
 
-const noteLabels = {
-  "g/3":"G","f/3":"F","e/3":"E","d/3":"D","c/3":"C",
-  "b/2":"B","a/2":"A","g/2":"G","f/2":"F","e/2":"E",
-  "d/2":"D","c/2":"C","b/1":"B","a/1":"A","g/1":"G","f/1":"F","e/1":"E"
+const noteNamen = {
+  "g/3":"G3","f/3":"F3","e/3":"E3","d/3":"D3","c/3":"C3",
+  "b/2":"B2","a/2":"A2","g/2":"G2","f/2":"F2","e/2":"E2",
+  "d/2":"D2","c/2":"C2","b/1":"B1","a/1":"A1","g/1":"G1","f/1":"F1","e/1":"E1"
 };
 
 const frequencies = {
@@ -147,39 +157,60 @@ const tabMap = {
   "f/1":{s:4,f:1},"e/1":{s:4,f:0}
 };
 
-function duurInTicks(d) {
-  if (d === 1) return TICKS_PER_KWART * 4;
-  if (d === 2) return TICKS_PER_KWART * 2;
-  if (d === 4) return TICKS_PER_KWART;
-  if (d === 8) return TICKS_PER_KWART / 2;
-  if (d === 16) return TICKS_PER_KWART / 4;
-  return TICKS_PER_KWART;
-}
+const nootWaarden = [
+  { duur: 1,  symbool: "𝅝",  naam: "Hele noot",     tellen: "4 tellen" },
+  { duur: 2,  symbool: "𝅗𝅥", naam: "Halve noot",    tellen: "2 tellen" },
+  { duur: 4,  symbool: "♩",  naam: "Kwartnoot",     tellen: "1 tel" },
+  { duur: 8,  symbool: "♪",  naam: "Achtste noot",  tellen: "½ tel" },
+  { duur: 16, symbool: "𝅘𝅥𝅯", naam: "Zestiende",    tellen: "¼ tel" }
+];
 
-function totaleTicks() { return MATEN * maatTeller * TICKS_PER_KWART; }
+const rustWaarden = [
+  { duur: 1,  symbool: "𝄻", naam: "Hele rust",    tellen: "4 tellen" },
+  { duur: 2,  symbool: "𝄼", naam: "Halve rust",   tellen: "2 tellen" },
+  { duur: 4,  symbool: "𝄽", naam: "Kwart rust",   tellen: "1 tel" },
+  { duur: 8,  symbool: "𝄾", naam: "Achtste rust", tellen: "½ tel" },
+  { duur: 16, symbool: "𝄿", naam: "Zestiende r.", tellen: "¼ tel" }
+];
 
-function tickNaarX(tick) { return startMargin + tick * TICK_WIDTH; }
-
+// Canvas setup
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 function herbereken() {
-  canvas.width = Math.max(window.innerWidth, startMargin + totaleTicks() * TICK_WIDTH + 40);
-  canvas.height = canvasH;
+  canvas.width = Math.max(window.innerWidth, START_MARGIN + totaleTicks() * TICK_WIDTH + 60);
+  canvas.height = CANVAS_H;
 }
+
+function totaleTicks() { return MATEN * maatTeller * TICKS_PER_KWART; }
+function duurInTicks(d) {
+  if (d === 1)  return TICKS_PER_KWART * 4;
+  if (d === 2)  return TICKS_PER_KWART * 2;
+  if (d === 4)  return TICKS_PER_KWART;
+  if (d === 8)  return Math.max(1, TICKS_PER_KWART / 2);
+  if (d === 16) return Math.max(1, TICKS_PER_KWART / 4);
+  return TICKS_PER_KWART;
+}
+function tickNaarX(t) { return START_MARGIN + t * TICK_WIDTH; }
+function xNaarTick(x) {
+  const scroll = document.getElementById("canvas-scroll").scrollLeft;
+  const raw = (x + scroll - START_MARGIN) / TICK_WIDTH;
+  const snap = duurInTicks(activeDuur);
+  return Math.max(0, Math.round(raw / snap) * snap);
+}
+function yNaarNoteIndex(y) {
+  const idx = Math.round((y - STAFF_TOP) / STAFF_STEP);
+  return Math.max(0, Math.min(noteMap.length - 1, idx));
+}
+
 herbereken();
 
+// Toolbar
 function setTool(t) {
   activeTool = t;
   ["noot","rust","wis"].forEach(function(x) {
-    document.getElementById("tool-" + x).classList.toggle("active", x === t);
-  });
-}
-
-function setDuur(d) {
-  activeDuur = d;
-  [1,2,4,8,16].forEach(function(x) {
-    document.getElementById("dur-" + x).classList.toggle("active", x === d);
+    const el = document.getElementById("tool-" + x);
+    if (el) el.classList.toggle("active", x === t);
   });
 }
 
@@ -193,138 +224,146 @@ function setMaat(v) {
   herbereken();
 }
 
-function setStatus(msg) {
+function setStatus(msg, duur) {
   document.getElementById("status-msg").textContent = msg;
-  if (msg) setTimeout(function() { document.getElementById("status-msg").textContent = ""; }, 3000);
+  if (msg) setTimeout(function() { document.getElementById("status-msg").textContent = ""; }, duur || 3000);
 }
 
-function noteYIndex(noteStr) { return noteMap.indexOf(noteStr); }
-
-function yNaarNoteIndex(y) {
-  const idx = Math.round((y - staffTop - staffLines[0] * STAFF_STEP) / STAFF_STEP);
-  return Math.max(0, Math.min(noteMap.length - 1, idx));
+// Popup
+function openPopup(type) {
+  setTool(type);
+  const isNoot = type === "noot";
+  const items = isNoot ? nootWaarden : rustWaarden;
+  document.getElementById("popup-title").textContent = isNoot ? "Kies nootwaarde" : "Kies rustwaarde";
+  const grid = document.getElementById("popup-grid");
+  grid.innerHTML = "";
+  items.forEach(function(item) {
+    const div = document.createElement("div");
+    div.className = "popup-item" + (item.duur === activeDuur ? " active-item" : "");
+    div.innerHTML = '<div class="pi-symbool">' + item.symbool + '</div><div class="pi-naam">' + item.naam + '</div><div class="pi-tellen">' + item.tellen + '</div>';
+    div.onclick = function() {
+      activeDuur = item.duur;
+      sluitPopup();
+      setStatus(item.naam + " geselecteerd");
+    };
+    grid.appendChild(div);
+  });
+  document.getElementById("popup").classList.add("open");
 }
 
+function sluitPopup() {
+  document.getElementById("popup").classList.remove("open");
+}
+
+// Tekenen
 function drawStaff() {
   const W = canvas.width;
   ctx.lineWidth = 1;
 
-  // Maat lijnen
+  // Maat lijnen + nummers
   for (let m = 0; m <= MATEN; m++) {
     const x = tickNaarX(m * maatTeller * TICKS_PER_KWART);
-    ctx.strokeStyle = m % 4 === 0 ? "#555" : "#2a2a2a";
-    ctx.lineWidth = m % 4 === 0 ? 1.5 : 1;
-    ctx.beginPath(); ctx.moveTo(x, staffTop - 20); ctx.lineTo(x, tabTop + TAB_STRINGS * TAB_GAP + 10); ctx.stroke();
-
-    // Maatnummer
+    ctx.strokeStyle = "#555";
+    ctx.lineWidth = m % 4 === 0 ? 2 : 1;
+    ctx.beginPath();
+    ctx.moveTo(x, STAFF_TOP - 15);
+    ctx.lineTo(x, TAB_TOP + TAB_STRINGS * TAB_GAP + 8);
+    ctx.stroke();
     if (m < MATEN) {
-      ctx.fillStyle = "#444"; ctx.font = "10px Arial"; ctx.textAlign = "left";
-      ctx.fillText((m + 1), x + 3, staffTop - 8);
+      ctx.fillStyle = "#666"; ctx.font = "bold 10px Arial"; ctx.textAlign = "left";
+      ctx.fillText("" + (m + 1), x + 4, STAFF_TOP - 4);
     }
   }
 
-  // Beat lijnen (licht)
+  // Beat sublijnen
   for (let b = 0; b < totaleTicks(); b++) {
     if (b % TICKS_PER_KWART === 0 && b % (maatTeller * TICKS_PER_KWART) !== 0) {
       const x = tickNaarX(b);
-      ctx.strokeStyle = "#1e1e1e"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, staffTop); ctx.lineTo(x, staffTop + 8 * STAFF_STEP + 10); ctx.stroke();
+      ctx.strokeStyle = "#252525"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, STAFF_TOP); ctx.lineTo(x, STAFF_TOP + 8 * STAFF_STEP); ctx.stroke();
     }
   }
 
-  // Notenbalk (5 lijnen)
-  ctx.strokeStyle = "#666"; ctx.lineWidth = 1;
-  staffLines.forEach(function(i) {
-    const y = staffTop + (i + 2) * STAFF_STEP;
+  // 5 notenbalkslijnen
+  ctx.strokeStyle = "#777"; ctx.lineWidth = 1;
+  STAFF_LINES.forEach(function(i) {
+    const y = STAFF_TOP + (i + 2) * STAFF_STEP;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   });
 
-  // Basleutel
-  ctx.fillStyle = PINK; ctx.font = "bold 36px serif"; ctx.textAlign = "left";
-  ctx.fillText("?", 8, staffTop + 7 * STAFF_STEP);
+  // Bassleutel
+  ctx.fillStyle = PINK; ctx.font = "42px serif"; ctx.textAlign = "left";
+  ctx.fillText("?", 4, STAFF_TOP + 8 * STAFF_STEP - 2);
 
-  // Noot labels links
-  ctx.font = "9px Arial"; ctx.fillStyle = "#333";
+  // Nootlabels links (G B D F A / A C E G)
+  ctx.font = "8px Arial"; ctx.fillStyle = "#444";
   noteMap.forEach(function(n, i) {
-    const y = staffTop + i * STAFF_STEP;
     ctx.textAlign = "right";
-    ctx.fillText(noteLabels[n], startMargin - 4, y + 4);
+    ctx.fillText(noteNamen[n], START_MARGIN - 3, STAFF_TOP + i * STAFF_STEP + 3);
   });
 
-  // Tablature lijnen
+  // TAB lijnen
   ctx.strokeStyle = "#444"; ctx.lineWidth = 1;
   for (let s = 0; s < TAB_STRINGS; s++) {
-    const y = tabTop + s * TAB_GAP;
+    const y = TAB_TOP + s * TAB_GAP;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
-
-  // TAB label
-  ctx.fillStyle = "#555"; ctx.font = "bold 11px Arial"; ctx.textAlign = "left";
-  ctx.fillText("T", 6, tabTop + 2);
-  ctx.fillText("A", 6, tabTop + TAB_GAP + 2);
-  ctx.fillText("B", 6, tabTop + TAB_GAP * 2 + 2);
+  ctx.fillStyle = "#555"; ctx.font = "bold 10px Arial"; ctx.textAlign = "left";
+  ["T","A","B",""].forEach(function(l, i) { ctx.fillText(l, 5, TAB_TOP + i * TAB_GAP + 4); });
 
   // Playhead
   if (isPlaying) {
     const x = tickNaarX(currentTick);
     ctx.strokeStyle = PINK; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(x, staffTop - 20); ctx.lineTo(x, tabTop + TAB_STRINGS * TAB_GAP + 10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, STAFF_TOP - 15); ctx.lineTo(x, TAB_TOP + TAB_STRINGS * TAB_GAP + 8); ctx.stroke();
   }
 }
 
-function drawNootVorm(cx, cy, nootIndex, duur, kleur, alpha) {
+function drawNootVorm(cx, cy, ni, duur, kleur, alpha) {
   ctx.save();
   if (alpha !== undefined) ctx.globalAlpha = alpha;
   const gevuld = duur >= 4;
-  const isHoog = nootIndex <= 8;
-  const stielX = isHoog ? cx + 6 : cx - 6;
-  const stielY = isHoog ? cy - 28 : cy + 28;
+  const isHoog = ni <= 8;
+  const sx = isHoog ? cx + 6 : cx - 6;
+  const sy = isHoog ? cy - 30 : cy + 30;
 
-  // Noot hoofd
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, 7, 5, -0.3, 0, Math.PI * 2);
+  // Hoofd
+  ctx.beginPath(); ctx.ellipse(cx, cy, 7, 5, -0.3, 0, Math.PI * 2);
   if (gevuld) { ctx.fillStyle = kleur; ctx.fill(); }
   else { ctx.strokeStyle = kleur; ctx.lineWidth = 1.5; ctx.stroke(); }
 
   // Stiel
-  ctx.strokeStyle = kleur; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(stielX, cy); ctx.lineTo(stielX, stielY); ctx.stroke();
+  if (duur !== 1) {
+    ctx.strokeStyle = kleur; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(sx, cy); ctx.lineTo(sx, sy); ctx.stroke();
+  }
 
-  // Vlaggen voor achtsten/zestienden
+  // Vlaggen
   if (duur === 8 || duur === 16) {
+    ctx.strokeStyle = kleur; ctx.lineWidth = 1.5;
     ctx.beginPath();
-    if (isHoog) {
-      ctx.moveTo(stielX, stielY);
-      ctx.bezierCurveTo(stielX + 16, stielY + 8, stielX + 12, stielY + 16, stielX, stielY + 20);
-    } else {
-      ctx.moveTo(stielX, stielY);
-      ctx.bezierCurveTo(stielX - 16, stielY - 8, stielX - 12, stielY - 16, stielX, stielY - 20);
-    }
-    ctx.strokeStyle = kleur; ctx.lineWidth = 1.5; ctx.stroke();
+    if (isHoog) { ctx.moveTo(sx, sy); ctx.bezierCurveTo(sx+14, sy+6, sx+10, sy+14, sx, sy+18); }
+    else { ctx.moveTo(sx, sy); ctx.bezierCurveTo(sx-14, sy-6, sx-10, sy-14, sx, sy-18); }
+    ctx.stroke();
   }
   if (duur === 16) {
     ctx.beginPath();
-    if (isHoog) {
-      ctx.moveTo(stielX, stielY + 10);
-      ctx.bezierCurveTo(stielX + 16, stielY + 18, stielX + 12, stielY + 26, stielX, stielY + 30);
-    } else {
-      ctx.moveTo(stielX, stielY - 10);
-      ctx.bezierCurveTo(stielX - 16, stielY - 18, stielX - 12, stielY - 26, stielX, stielY - 30);
-    }
-    ctx.strokeStyle = kleur; ctx.lineWidth = 1.5; ctx.stroke();
+    if (isHoog) { ctx.moveTo(sx, sy+10); ctx.bezierCurveTo(sx+14, sy+16, sx+10, sy+24, sx, sy+28); }
+    else { ctx.moveTo(sx, sy-10); ctx.bezierCurveTo(sx-14, sy-16, sx-10, sy-24, sx, sy-28); }
+    ctx.stroke();
   }
 
   // Hulplijnen
-  const staffY = staffTop + 2 * STAFF_STEP;
-  const staffBottom = staffTop + 6 * STAFF_STEP;
-  if (cy < staffY - 2) {
-    for (let ly = staffY - STAFF_STEP; ly >= cy - STAFF_STEP; ly -= STAFF_STEP) {
+  const s1 = STAFF_TOP + 2 * STAFF_STEP;
+  const s5 = STAFF_TOP + 6 * STAFF_STEP;
+  if (cy < s1 - 2) {
+    for (let ly = s1 - STAFF_STEP; ly >= cy - STAFF_STEP; ly -= STAFF_STEP) {
       ctx.strokeStyle = kleur; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(cx - 10, ly); ctx.lineTo(cx + 10, ly); ctx.stroke();
     }
   }
-  if (cy > staffBottom + 2) {
-    for (let ly = staffBottom + STAFF_STEP; ly <= cy + STAFF_STEP; ly += STAFF_STEP) {
+  if (cy > s5 + 2) {
+    for (let ly = s5 + STAFF_STEP; ly <= cy + STAFF_STEP; ly += STAFF_STEP) {
       ctx.strokeStyle = kleur; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(cx - 10, ly); ctx.lineTo(cx + 10, ly); ctx.stroke();
     }
@@ -332,22 +371,17 @@ function drawNootVorm(cx, cy, nootIndex, duur, kleur, alpha) {
   ctx.restore();
 }
 
-function drawRust(cx, cy, duur, kleur, alpha) {
+function drawRust(cx, duur, kleur, alpha) {
   ctx.save();
   if (alpha !== undefined) ctx.globalAlpha = alpha;
-  ctx.fillStyle = kleur; ctx.strokeStyle = kleur; ctx.lineWidth = 2;
-  const y = staffTop + 4 * STAFF_STEP;
-  if (duur === 1) {
-    ctx.fillRect(cx - 10, y - 6, 20, 8);
-  } else if (duur === 2) {
-    ctx.fillRect(cx - 10, y, 20, 8);
-  } else if (duur === 4) {
-    ctx.font = "bold 24px serif"; ctx.textAlign = "center"; ctx.fillText("𝄽", cx, y + 12);
-  } else if (duur === 8) {
-    ctx.font = "bold 18px serif"; ctx.textAlign = "center"; ctx.fillText("𝄾", cx, y + 10);
-  } else if (duur === 16) {
-    ctx.font = "bold 18px serif"; ctx.textAlign = "center"; ctx.fillText("𝄿", cx, y + 10);
-  }
+  ctx.fillStyle = kleur; ctx.strokeStyle = kleur;
+  const y = STAFF_TOP + 4 * STAFF_STEP;
+  ctx.font = "bold 22px serif"; ctx.textAlign = "center";
+  if (duur === 1) { ctx.fillRect(cx - 10, y - 8, 20, 8); }
+  else if (duur === 2) { ctx.fillRect(cx - 10, y, 20, 7); }
+  else if (duur === 4)  { ctx.fillText("𝄽", cx, y + 12); }
+  else if (duur === 8)  { ctx.fillText("𝄾", cx, y + 12); }
+  else if (duur === 16) { ctx.fillText("𝄿", cx, y + 12); }
   ctx.restore();
 }
 
@@ -355,15 +389,14 @@ function drawNotes() {
   notes.forEach(function(n) {
     const x = tickNaarX(n.tick);
     if (n.isRust) {
-      drawRust(x, 0, n.duur, "white");
+      drawRust(x, n.duur, "white");
     } else {
-      const ni = noteYIndex(n.note);
-      const y = staffTop + ni * STAFF_STEP;
+      const ni = noteMap.indexOf(n.note);
+      const y = STAFF_TOP + ni * STAFF_STEP;
       drawNootVorm(x, y, ni, n.duur, "white");
-
       const t = tabMap[n.note];
       if (t) {
-        const ty = tabTop + (t.s - 1) * TAB_GAP;
+        const ty = TAB_TOP + (t.s - 1) * TAB_GAP;
         ctx.fillStyle = "#151515"; ctx.fillRect(x - 9, ty - 8, 18, 16);
         ctx.fillStyle = CYAN; ctx.font = "bold 12px Arial"; ctx.textAlign = "center";
         ctx.fillText(t.f, x, ty + 5);
@@ -376,11 +409,15 @@ function drawGhost() {
   if (!ghost) return;
   const x = tickNaarX(ghost.tick);
   if (ghost.isRust) {
-    drawRust(x, 0, activeDuur, PINK, 0.5);
+    drawRust(x, activeDuur, PINK, 0.6);
   } else {
-    const ni = noteYIndex(ghost.note);
-    const y = staffTop + ni * STAFF_STEP;
-    drawNootVorm(x, y, ni, activeDuur, PINK, 0.5);
+    const ni = noteMap.indexOf(ghost.note);
+    const y = STAFF_TOP + ni * STAFF_STEP;
+    drawNootVorm(x, y, ni, activeDuur, PINK, 0.7);
+    // Indicator lijn van vinger naar noot
+    ctx.save(); ctx.globalAlpha = 0.3; ctx.strokeStyle = PINK; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + GHOST_OFFSET); ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -392,30 +429,21 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-function posNaarTick(clientX) {
-  const wrap = document.getElementById("canvas-wrap");
-  const rect = canvas.getBoundingClientRect();
-  const x = clientX - rect.left + wrap.scrollLeft;
-  const tick = Math.round((x - startMargin) / TICK_WIDTH);
-  const snapTick = duurInTicks(activeDuur);
-  return Math.max(0, Math.round(tick / snapTick) * snapTick);
-}
+// Touch events
+canvas.addEventListener("contextmenu", function(e) { e.preventDefault(); });
 
-function posNaarNote(clientY) {
-  const rect = canvas.getBoundingClientRect();
-  const y = clientY - rect.top;
-  return yNaarNoteIndex(y);
-}
-
-canvas.addEventListener("pointerdown", function(e) {
-  if (audioCtx.state === "suspended") audioCtx.resume();
+canvas.addEventListener("touchstart", function(e) {
+  e.preventDefault();
+  unlockAudio();
   isTouching = true;
-  canvas.setPointerCapture(e.pointerId);
-  const tick = posNaarTick(e.clientX);
-  const ni = posNaarNote(e.clientY);
+  const t = e.touches[0];
+  touchStartY = t.clientY;
+  const tick = xNaarTick(t.clientX);
+  const ni = yNaarNoteIndex(t.clientY - GHOST_OFFSET);
 
   if (activeTool === "wis") {
-    notes = notes.filter(function(n) { return !(Math.abs(n.tick - tick) < duurInTicks(activeDuur)); });
+    const snap = duurInTicks(activeDuur);
+    notes = notes.filter(function(n) { return Math.abs(n.tick - tick) >= snap; });
     return;
   }
   if (activeTool === "rust") {
@@ -424,52 +452,54 @@ canvas.addEventListener("pointerdown", function(e) {
   }
   ghost = { tick: tick, note: noteMap[ni], isRust: false, duur: activeDuur };
   playBassTone(noteMap[ni]);
-});
+}, { passive: false });
 
-canvas.addEventListener("pointermove", function(e) {
-  if (!isTouching) return;
-  const tick = posNaarTick(e.clientX);
-  const ni = posNaarNote(e.clientY);
-  if (activeTool === "noot") {
-    const newNote = noteMap[ni];
-    if (!ghost || ghost.note !== newNote || ghost.tick !== tick) {
-      if (newNote !== (ghost && ghost.note)) playBassTone(newNote);
-      ghost = { tick: tick, note: newNote, isRust: false, duur: activeDuur };
-    }
-  } else if (activeTool === "rust") {
+canvas.addEventListener("touchmove", function(e) {
+  e.preventDefault();
+  if (!isTouching || activeTool === "wis") return;
+  const t = e.touches[0];
+  const tick = xNaarTick(t.clientX);
+  const ni = yNaarNoteIndex(t.clientY - GHOST_OFFSET);
+  const newNote = noteMap[ni];
+
+  if (activeTool === "rust") {
     ghost = { tick: tick, isRust: true, duur: activeDuur };
+  } else {
+    if (!ghost || ghost.note !== newNote) playBassTone(newNote);
+    ghost = { tick: tick, note: newNote, isRust: false, duur: activeDuur };
   }
-});
+}, { passive: false });
 
-canvas.addEventListener("pointerup", function() {
+canvas.addEventListener("touchend", function(e) {
+  e.preventDefault();
   if (isTouching && ghost && activeTool !== "wis") {
     const bestaand = notes.findIndex(function(n) {
       return n.tick === ghost.tick && (n.isRust ? ghost.isRust : n.note === ghost.note);
     });
-    if (bestaand !== -1) {
-      notes.splice(bestaand, 1);
-    } else {
-      notes.push(Object.assign({}, ghost));
-    }
+    if (bestaand !== -1) { notes.splice(bestaand, 1); }
+    else { notes.push(Object.assign({}, ghost)); }
   }
   ghost = null;
   isTouching = false;
-});
+}, { passive: false });
 
+// Audio
 function playBassTone(noteName) {
   if (!frequencies[noteName]) return;
+  unlockAudio();
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
   osc.type = "triangle";
   osc.frequency.setValueAtTime(frequencies[noteName], audioCtx.currentTime);
-  gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+  gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
   osc.connect(gain); gain.connect(audioCtx.destination);
-  osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.5);
 }
 
+// Playback
 function togglePlayback() {
-  if (audioCtx.state === "suspended") audioCtx.resume();
+  unlockAudio();
   const btn = document.getElementById("playBtn");
   if (isPlaying) {
     clearInterval(playbackTimer);
@@ -480,26 +510,24 @@ function togglePlayback() {
     btn.textContent = "⏹ STOP"; btn.classList.add("playing");
     const msPerTick = (60 / bpm / TICKS_PER_KWART) * 1000;
     playbackTimer = setInterval(function() {
-      const hits = notes.filter(function(n) { return !n.isRust && n.tick === currentTick; });
-      hits.forEach(function(h) { playBassTone(h.note); });
+      notes.filter(function(n) { return !n.isRust && n.tick === currentTick; })
+           .forEach(function(h) { playBassTone(h.note); });
       currentTick++;
-      if (currentTick >= totaleTicks()) {
-        currentTick = 0;
-      }
+      if (currentTick >= totaleTicks()) currentTick = 0;
     }, msPerTick);
   }
 }
 
 function clearNotes() {
-  if (confirm("Alle noten wissen?")) { notes = []; }
+  if (confirm("Alle noten wissen?")) notes = [];
 }
 
+// AI Upload
 async function handleAIUpload(input) {
   const bestand = input.files[0];
   if (!bestand || aiBezig) return;
   aiBezig = true;
-  setStatus("🤖 AI analyseert foto...");
-
+  setStatus("🤖 AI analyseert...");
   const reader = new FileReader();
   reader.onload = async function(ev) {
     const base64 = ev.target.result.split(",")[1];
@@ -518,43 +546,38 @@ async function handleAIUpload(input) {
         });
         setStatus("✓ " + data.noten.length + " noten geïmporteerd!");
       } else {
-        setStatus("Geen noten herkend. Probeer een duidelijkere foto.");
+        setStatus("Geen noten herkend.");
       }
-    } catch(err) {
-      setStatus("Fout bij AI analyse.");
-    }
-    aiBezig = false;
-    input.value = "";
+    } catch(err) { setStatus("Fout bij AI."); }
+    aiBezig = false; input.value = "";
   };
   reader.readAsDataURL(bestand);
 }
 
+// MIDI Export
 function exportMIDI() {
-  if (notes.length === 0) { setStatus("Zet eerst wat noten neer!"); return; }
+  if (notes.length === 0) { setStatus("Zet eerst noten neer!"); return; }
   const header = [0x4d,0x54,0x68,0x64,0x00,0x00,0x00,0x06,0x00,0x00,0x00,0x01,0x00,0x60];
-  let events = [];
-  const sorted = [...notes].filter(function(n) { return !n.isRust; }).sort(function(a,b) { return a.tick - b.tick; });
-  let lastTick = 0;
+  const sorted = notes.filter(function(n) { return !n.isRust; }).sort(function(a,b) { return a.tick - b.tick; });
+  let events = [], lastTick = 0;
   sorted.forEach(function(n) {
     const tick = n.tick * 8;
     const delta = tick - lastTick;
     const pitch = midiPitches[n.note];
-    const duurTicks = duurInTicks(n.duur) * 8;
-    events.push(delta > 127 ? [0x81, delta & 0x7f] : [delta], [0x90, pitch, 0x64]);
-    events.push([duurTicks > 127 ? 0x81 : duurTicks], [0x80, pitch, 0x00]);
-    lastTick = tick + duurTicks;
+    const durTicks = duurInTicks(n.duur) * 8;
+    const d1 = delta > 127 ? [0x81 | ((delta >> 7) & 0x7f), delta & 0x7f] : [delta];
+    const d2 = durTicks > 127 ? [0x81 | ((durTicks >> 7) & 0x7f), durTicks & 0x7f] : [durTicks];
+    events = events.concat(d1, [0x90, pitch, 0x64], d2, [0x80, pitch, 0x00]);
+    lastTick = tick + durTicks;
   });
-  events.push([0x01, 0xff, 0x2f, 0x00]);
-  const flat = [].concat(...events);
-  const trackData = [0x4d,0x54,0x72,0x6b];
-  const len = flat.length;
+  events = events.concat([0x00, 0xff, 0x2f, 0x00]);
+  const trackTag = [0x4d,0x54,0x72,0x6b];
+  const len = events.length;
   const size = [(len>>24)&0xff,(len>>16)&0xff,(len>>8)&0xff,len&0xff];
-  const fullFile = new Uint8Array([...header,...trackData,...size,...flat]);
+  const fullFile = new Uint8Array([...header,...trackTag,...size,...events]);
   const blob = new Blob([fullFile], {type:"audio/midi"});
   const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "bassline.mid";
-  link.click();
+  link.href = URL.createObjectURL(blob); link.download = "bassline.mid"; link.click();
   setStatus("MIDI geëxporteerd!");
 }
 
