@@ -8,19 +8,19 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #fff; padding: 20px; }
-    #status { font-size: 14px; color: #333; margin-bottom: 10px; }
+    #status { font-size: 14px; color: #FF2D7A; font-weight: 700; margin-bottom: 10px; }
   </style>
 </head>
 <body>
   <div id="status">Laden...</div>
   <div id="output"></div>
-  <script src="https://unpkg.com/vexflow@4.0.3/build/cjs/vexflow.js"
+  <script src="vexflow.js"
     onload="init()"
-    onerror="document.getElementById('status').textContent='FOUT: VexFlow niet geladen'">
+    onerror="document.getElementById('status').textContent='FOUT: vexflow.js niet gevonden - zet vexflow.js in dezelfde map'">
   </script>
   <script>
     function init() {
-      document.getElementById("status").textContent = "VexFlow geladen!";
+      document.getElementById("status").textContent = "✓ VexFlow geladen!";
       const { Renderer, Stave } = Vex.Flow;
       const div = document.getElementById("output");
       const renderer = new Renderer(div, Renderer.Backends.SVG);
