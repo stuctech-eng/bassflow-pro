@@ -7,22 +7,29 @@
   <title>BassFlow VexFlow Test</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; }
-    #output { width: 100%; overflow-x: auto; }
+    body { background: #fff; padding: 20px; }
+    #status { font-size: 14px; color: #333; margin-bottom: 10px; }
   </style>
 </head>
 <body>
+  <div id="status">Laden...</div>
   <div id="output"></div>
-  <script src="https://cdn.jsdelivr.net/npm/vexflow@4.0.3/build/cjs/vexflow.js"></script>
+  <script src="https://unpkg.com/vexflow@4.0.3/build/cjs/vexflow.js"
+    onload="init()"
+    onerror="document.getElementById('status').textContent='FOUT: VexFlow niet geladen'">
+  </script>
   <script>
-    const { Renderer, Stave } = Vex.Flow;
-    const div = document.getElementById("output");
-    const renderer = new Renderer(div, Renderer.Backends.SVG);
-    renderer.resize(window.innerWidth, 200);
-    const context = renderer.getContext();
-    const stave = new Stave(10, 40, window.innerWidth - 20);
-    stave.addClef("bass").addTimeSignature("4/4");
-    stave.setContext(context).draw();
+    function init() {
+      document.getElementById("status").textContent = "VexFlow geladen!";
+      const { Renderer, Stave } = Vex.Flow;
+      const div = document.getElementById("output");
+      const renderer = new Renderer(div, Renderer.Backends.SVG);
+      renderer.resize(window.innerWidth - 40, 200);
+      const context = renderer.getContext();
+      const stave = new Stave(10, 40, window.innerWidth - 60);
+      stave.addClef("bass").addTimeSignature("4/4");
+      stave.setContext(context).draw();
+    }
   </script>
 </body>
 </html>
