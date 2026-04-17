@@ -196,23 +196,62 @@ document.getElementById('omr-upload').addEventListener('change', function(e) {
 canvas.addEventListener("pointerdown", (e) => {
   if (audioCtx.state === 'suspended') audioCtx.resume();
   isTouching = true;
+  canvas.setPointerCapture(e.pointerId);
+  
   const rect = canvas.getBoundingClientRect();
   const bIdx = Math.round((e.clientX - rect.left - startMargin) / beatWidth);
   const pIdx = Math.round((e.clientY - rect.top - 75 - staffTop) / 7);
   const p = Math.max(0, Math.min(noteMap.length - 1, pIdx));
-  ghost = { x: startMargin + (bIdx * beatWidth), y: staffTop + p * 7, note: noteMap[p], index: p, beat: bIdx };
+  
+  // Maak een ghost die direct reageert
+  ghost = { 
+    x: startMargin + (bIdx * beatWidth), 
+    y: staffTop + p * 7, 
+    note: noteMap[p], 
+    index: p, 
+    beat: bIdx 
+  };
   playBassTone(ghost.note);
+});
+
+canvas.addEventListener("pointermove", (e) => {
+  if (!isTouching) return;
+  
+  const rect = canvas.getBoundingClientRect();
+  const bIdx = Math.round((e.clientX - rect.left - startMargin) / beatWidth);
+  const pIdx = Math.round((e.clientY - rect.top - 75 - staffTop) / 7);
+  const p = Math.max(0, Math.min(noteMap.length - 1, pIdx));
+  
+  let newGhost = { 
+    x: startMargin + (bIdx * beatWidth), 
+    y: staffTop + p * 7, 
+    note: noteMap[p], 
+    index: p, 
+    beat: bIdx 
+  };
+  
+  // Alleen geluid afspelen als we naar een andere noot schuiven
+  if (ghost && (newGhost.note !== ghost.note || newGhost.beat !== ghost.beat)) {
+    playBassTone(newGhost.note);
+  }
+  ghost = newGhost;
 });
 
 canvas.addEventListener("pointerup", () => {
   if (isTouching && ghost) {
+    // Check of deze specifieke noot al op deze plek staat
     const existing = notes.findIndex(n => n.beat === ghost.beat && n.note === ghost.note);
-    if (existing !== -1) notes.splice(existing, 1);
-    else notes.push(ghost);
+    
+    if (existing !== -1) {
+      notes.splice(existing, 1); // Verwijderen bij tweede klik
+    } else {
+      notes.push(ghost); // Toevoegen
+    }
     ghost = null;
   }
   isTouching = false;
 });
+
 
 function clearNotes() { notes = []; }
 loop();
