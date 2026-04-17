@@ -23,8 +23,7 @@
     #bpm-label { font-size: 10px; color: #FF2D7A; font-weight: 800; min-width: 54px; }
     #bpm-slider { width: 65px; accent-color: #FF2D7A; }
     #maat-select { background: #1a1a1a; color: #aaa; border: 1px solid #333; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: 700; }
-    #canvas-wrap { position: relative; width: 100vw; overflow: hidden; }
-    canvas { background: #151515; display: block; }
+    canvas { background: #151515; display: block; touch-action: none; }
     #bg-controls { display: none; position: fixed; bottom: 32px; left: 10px; right: 10px; background: #111; border: 1px solid #333; border-radius: 8px; padding: 8px 12px; z-index: 50; align-items: center; gap: 8px; }
     #bg-controls.open { display: flex; }
     #bg-controls label { font-size: 10px; color: #aaa; white-space: nowrap; }
@@ -74,14 +73,12 @@
   <button class="tb danger" id="clearBtn">CLEAR</button>
 </div>
 
-<div id="canvas-wrap">
-  <canvas id="canvas"></canvas>
-</div>
+<canvas id="canvas"></canvas>
 
 <div id="bg-controls">
-  <label>📷</label>
+  <label>📷 Opacity</label>
   <input type="range" id="opacity-slider" min="0" max="100" value="35" oninput="setBGOpacity(this.value)">
-  <button class="tb danger" style="padding:5px 9px;font-size:11px" id="bgVerwijderBtn">✕ Verwijder</button>
+  <button class="tb danger" style="padding:5px 9px;font-size:11px" id="bgVerwijderBtn">✕</button>
 </div>
 
 <div id="statusbar">
@@ -95,21 +92,10 @@
   <button id="popup-sluit" onclick="sluitPopup()">Annuleer</button>
 </div>
 
-<!-- Verborgen canvas voor F-sleutel SVG -->
-<canvas id="clef-canvas" style="display:none" width="60" height="120"></canvas>
-
 <script>
 const PINK = "#FF2D7A";
 const CYAN = "#00d4ff";
 
-// F-sleutel afbeelding via SVG
-const clefImg = new Image();
-const clefSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 120">
-  <text x="5" y="85" font-size="90" font-family="serif" fill="#FF2D7A">&#119070;</text>
-</svg>`;
-clefImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(clefSVG);
-
-// Audio
 let audioCtx = null;
 let audioUnlocked = false;
 function getAudio() {
@@ -118,7 +104,6 @@ function getAudio() {
   return audioCtx;
 }
 
-// State
 let isPlaying = false, currentTick = 0, playbackTimer = null;
 let activeTool = "noot";
 let activeDuur = 4;
@@ -127,7 +112,6 @@ let maatTeller = 4;
 let notes = [];
 let ghost = null;
 let isTouching = false;
-let isScrolling = false;
 let isPinching = false;
 let scrollX = 0;
 let zoomFactor = 1.0;
@@ -135,23 +119,22 @@ let bgImage = null;
 let bgOpacity = 0.35;
 let aiBezig = false;
 
-// Layout
 const TICKS_PER_KWART = 4;
 const BASE_TICK_WIDTH = 20;
 const MATEN = 8;
-const START_MARGIN = 62;
+const START_MARGIN = 65;
 const MAAT_PADDING = 10;
-const STAFF_TOP = 70;
-const BASE_STAFF_STEP = 8;
-const BASE_TAB_GAP = 20;
+const STAFF_TOP = 30;
+const BASE_STAFF_STEP = 9;
+const BASE_TAB_GAP = 22;
 const TAB_STRINGS = 4;
-const GHOST_OFFSET = 88;
+const GHOST_OFFSET = 80;
 
 function TW()  { return BASE_TICK_WIDTH * zoomFactor; }
 function SS()  { return BASE_STAFF_STEP * zoomFactor; }
-function TT()  { return STAFF_TOP + 17 * SS() + 35; }
+function TT()  { return STAFF_TOP + 17 * SS() + 30; }
 function TG()  { return BASE_TAB_GAP * zoomFactor; }
-function CH()  { return TT() + TAB_STRINGS * TG() + 45; }
+function CH()  { return TT() + TAB_STRINGS * TG() + 35; }
 function MB()  { return maatTeller * TICKS_PER_KWART * TW() + MAAT_PADDING * 2; }
 function TOT() { return MATEN * maatTeller * TICKS_PER_KWART; }
 
@@ -171,20 +154,21 @@ function tickNaarX(tick) {
 }
 
 function xNaarTick(clientX) {
-  const x = clientX + scrollX - START_MARGIN;
+  const rect = canvas.getBoundingClientRect();
+  const x = (clientX - rect.left) * (canvas.width / rect.width) + scrollX - START_MARGIN;
   const maat = Math.max(0, Math.floor(x / MB()));
   const binnen = Math.max(0, x - maat * MB() - MAAT_PADDING);
-  const rawTick = maat * maatTeller * TICKS_PER_KWART + binnen / TW();
   const snap = duurInTicks(activeDuur);
+  const rawTick = maat * maatTeller * TICKS_PER_KWART + (binnen / TW());
   const snapped = Math.round(rawTick / snap) * snap;
-  // Zorg dat noot binnen de maat valt
   const maatStart = maat * maatTeller * TICKS_PER_KWART;
-  const maatEind = maatStart + maatTeller * TICKS_PER_KWART - snap;
+  const maatEind = (maat + 1) * maatTeller * TICKS_PER_KWART - snap;
   return Math.max(0, Math.min(TOT() - snap, Math.max(maatStart, Math.min(maatEind, snapped))));
 }
 
 function yNaarNoteIndex(clientY) {
-  const y = clientY - GHOST_OFFSET;
+  const rect = canvas.getBoundingClientRect();
+  const y = (clientY - rect.top) * (canvas.height / rect.height) - GHOST_OFFSET;
   const idx = Math.round((y - STAFF_TOP) / SS());
   return Math.max(0, Math.min(noteMap.length - 1, idx));
 }
@@ -240,13 +224,13 @@ const ctx = canvas.getContext("2d");
 
 function herbereken() {
   canvas.width = window.innerWidth;
-  canvas.height = Math.max(CH(), window.innerHeight - 80);
+  canvas.height = CH();
 }
 herbereken();
 window.addEventListener("resize", herbereken);
 
-function zoomIn()  { zoomFactor = Math.min(3.0, parseFloat((zoomFactor+0.2).toFixed(1))); herbereken(); }
-function zoomOut() { zoomFactor = Math.max(0.4, parseFloat((zoomFactor-0.2).toFixed(1))); herbereken(); }
+function zoomIn()  { zoomFactor = Math.min(3.0, parseFloat((zoomFactor+0.25).toFixed(2))); herbereken(); }
+function zoomOut() { zoomFactor = Math.max(0.4, parseFloat((zoomFactor-0.25).toFixed(2))); herbereken(); }
 
 function setTool(t) {
   activeTool = t;
@@ -319,36 +303,27 @@ document.getElementById("clearBtn").addEventListener("touchend", function(e) {
   notes = []; setStatus("Gewist");
 });
 
-// Tekenen
-function drawFSleutel(x, y, hoogte) {
+function drawFSleutel(x, y, h) {
   ctx.save();
-  // Teken F-sleutel met canvas
-  const h = hoogte;
-  const w = h * 0.55;
-  ctx.strokeStyle = PINK;
-  ctx.fillStyle = PINK;
-  ctx.lineWidth = h * 0.06;
+  ctx.strokeStyle = PINK; ctx.fillStyle = PINK;
+  const lw = h * 0.055;
+  ctx.lineWidth = lw;
 
-  // Hoofdcirkel
+  // Hoofdbol
   ctx.beginPath();
-  ctx.arc(x + w*0.45, y + h*0.18, h*0.13, 0, Math.PI*2);
+  ctx.arc(x + h*0.22, y + h*0.15, h*0.12, 0, Math.PI*2);
   ctx.fill();
 
-  // Lange gebogen lijn
+  // Gebogen staart
   ctx.beginPath();
-  ctx.moveTo(x + w*0.45, y + h*0.04);
-  ctx.bezierCurveTo(x + w*1.1, y + h*0.04, x + w*1.1, y + h*0.4, x + w*0.45, y + h*0.55);
-  ctx.bezierCurveTo(x - w*0.1, y + h*0.7, x + w*0.1, y + h*0.95, x + w*0.45, y + h*0.95);
+  ctx.moveTo(x + h*0.22, y + h*0.03);
+  ctx.bezierCurveTo(x + h*0.7,  y + h*0.03, x + h*0.7,  y + h*0.38, x + h*0.22, y + h*0.52);
+  ctx.bezierCurveTo(x - h*0.1,  y + h*0.65, x + h*0.08, y + h*0.92, x + h*0.22, y + h*0.97);
   ctx.stroke();
 
-  // Twee puntjes rechts
-  ctx.beginPath();
-  ctx.arc(x + w*1.15, y + h*0.28, h*0.045, 0, Math.PI*2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(x + w*1.15, y + h*0.42, h*0.045, 0, Math.PI*2);
-  ctx.fill();
-
+  // Twee puntjes
+  ctx.beginPath(); ctx.arc(x + h*0.72, y + h*0.25, h*0.042, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x + h*0.72, y + h*0.38, h*0.042, 0, Math.PI*2); ctx.fill();
   ctx.restore();
 }
 
@@ -359,18 +334,14 @@ function drawStaff() {
   const tg = TG();
   const mb = MB();
 
-  // Achtergrond foto -- originele verhouding bewaren
+  // Achtergrond foto -- volledige breedte, juiste verhouding
   if (bgImage) {
     ctx.save();
     ctx.globalAlpha = bgOpacity;
-    const beschikbaarH = tt + TAB_STRINGS * tg - STAFF_TOP + 20;
-    const beschikbaarW = W;
-    const fotoRatio = bgImage.width / bgImage.height;
-    let tW = beschikbaarW;
-    let tH = tW / fotoRatio;
-    if (tH > beschikbaarH) { tH = beschikbaarH; tW = tH * fotoRatio; }
-    const ox = (W - tW) / 2;
-    ctx.drawImage(bgImage, ox, STAFF_TOP - 5, tW, tH);
+    const ratio = bgImage.naturalWidth / bgImage.naturalHeight;
+    const tW = W;
+    const tH = tW / ratio;
+    ctx.drawImage(bgImage, 0, STAFF_TOP, tW, tH);
     ctx.restore();
   }
 
@@ -379,26 +350,25 @@ function drawStaff() {
     const x1 = tickNaarX(m * maatTeller * TICKS_PER_KWART);
     const x2 = tickNaarX((m+1) * maatTeller * TICKS_PER_KWART);
     ctx.fillStyle = m % 2 === 0 ? "rgba(255,255,255,0.015)" : "rgba(0,0,0,0)";
-    ctx.fillRect(x1, STAFF_TOP - 22, x2 - x1, tt + TAB_STRINGS * tg + 15 - STAFF_TOP + 22);
+    ctx.fillRect(x1, STAFF_TOP - 15, x2 - x1, tt + TAB_STRINGS * tg + 10 - STAFF_TOP + 15);
   }
 
-  // Maatstrepen -- duidelijk
+  // Maatstrepen
   for (let m = 0; m <= MATEN; m++) {
     const x = tickNaarX(m * maatTeller * TICKS_PER_KWART);
     ctx.strokeStyle = m === 0 || m === MATEN ? "#999" : "#666";
     ctx.lineWidth = m === 0 || m === MATEN ? 2.5 : 1.5;
     ctx.beginPath();
-    ctx.moveTo(x, STAFF_TOP - 20);
-    ctx.lineTo(x, tt + TAB_STRINGS * tg + 8);
+    ctx.moveTo(x, STAFF_TOP - 12);
+    ctx.lineTo(x, tt + TAB_STRINGS * tg + 6);
     ctx.stroke();
-
     if (m < MATEN) {
       ctx.fillStyle = "#666"; ctx.font = "bold 10px Arial"; ctx.textAlign = "left";
-      ctx.fillText("" + (m+1), x + 5, STAFF_TOP - 6);
+      ctx.fillText("" + (m+1), x + 4, STAFF_TOP - 2);
     }
   }
 
-  // Beat lijnen binnen maat
+  // Beat lijnen
   for (let m = 0; m < MATEN; m++) {
     for (let b = 1; b < maatTeller; b++) {
       const tick = m * maatTeller * TICKS_PER_KWART + b * TICKS_PER_KWART;
@@ -411,32 +381,33 @@ function drawStaff() {
     }
   }
 
-  // 5 notenbalkslijnen
+  // 5 notenbalkslijnen op indices 2,4,6,8,10
   ctx.strokeStyle = "#777"; ctx.lineWidth = 1;
   [2,4,6,8,10].forEach(function(i) {
     const y = STAFF_TOP + i * ss;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   });
 
-  // F-sleutel tekenen
-  const sleutelH = 10 * ss;
-  drawFSleutel(4, STAFF_TOP + ss, sleutelH);
+  // F-sleutel
+  drawFSleutel(4, STAFF_TOP + ss*0.5, ss * 9);
 
-  // Nootlabels
+  // Nootlabels links
   ctx.font = "8px Arial"; ctx.fillStyle = "#3a3a3a";
   noteMap.forEach(function(n, i) {
     ctx.textAlign = "right";
     ctx.fillText(noteNamen[n], START_MARGIN - 3, STAFF_TOP + i * ss + 3);
   });
 
-  // TAB lijnen
+  // TAB lijnen -- 4 snaren
   ctx.strokeStyle = "#3a3a3a"; ctx.lineWidth = 1;
   for (let s = 0; s < TAB_STRINGS; s++) {
     const y = tt + s * tg;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
-  ctx.fillStyle = "#444"; ctx.font = "bold 9px Arial"; ctx.textAlign = "left";
-  ["T","A","B",""].forEach(function(l, i) { ctx.fillText(l, 5, tt + i * tg + 4); });
+  ctx.fillStyle = "#555"; ctx.font = "bold 9px Arial"; ctx.textAlign = "left";
+  ["G","D","A","E"].forEach(function(l, i) {
+    ctx.fillText(l, 5, tt + i * tg + 4);
+  });
 
   // Scroll indicator
   const totBreedte = MATEN * mb + START_MARGIN + 20;
@@ -444,8 +415,8 @@ function drawStaff() {
     const barW = Math.max(30, (W / totBreedte) * W);
     const maxScroll = totBreedte - W;
     const barX = maxScroll > 0 ? (scrollX / maxScroll) * (W - barW) : 0;
-    ctx.fillStyle = "#1a1a1a"; ctx.fillRect(0, canvas.height - 6, W, 6);
-    ctx.fillStyle = "#444"; ctx.fillRect(barX, canvas.height - 6, barW, 6);
+    ctx.fillStyle = "#1a1a1a"; ctx.fillRect(0, canvas.height - 5, W, 5);
+    ctx.fillStyle = "#444"; ctx.fillRect(barX, canvas.height - 5, barW, 5);
   }
 
   // Playhead
@@ -453,8 +424,8 @@ function drawStaff() {
     const x = tickNaarX(currentTick);
     ctx.strokeStyle = PINK; ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(x, STAFF_TOP - 20);
-    ctx.lineTo(x, tt + TAB_STRINGS * tg + 8);
+    ctx.moveTo(x, STAFF_TOP - 12);
+    ctx.lineTo(x, tt + TAB_STRINGS * tg + 6);
     ctx.stroke();
   }
 }
@@ -492,7 +463,7 @@ function drawNootVorm(cx, cy, ni, duur, kleur, alpha) {
     ctx.strokeStyle = kleur; ctx.lineWidth = 1.5; ctx.stroke();
   }
 
-  // Hulplijnen
+  // Hulplijnen boven/onder balk
   const s1y = STAFF_TOP + 2 * ss;
   const s5y = STAFF_TOP + 10 * ss;
   if (cy < s1y - 2) {
@@ -516,27 +487,27 @@ function drawRust(cx, duur, kleur, alpha) {
   ctx.fillStyle = kleur; ctx.strokeStyle = kleur;
   const ss = SS();
   const midY = STAFF_TOP + 5 * ss;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2 * zoomFactor;
 
   if (duur === 1) {
-    ctx.fillRect(cx - 10*zoomFactor, midY - ss*1.2, 20*zoomFactor, 7*zoomFactor);
+    ctx.fillRect(cx - 10*zoomFactor, midY - ss*1.2, 20*zoomFactor, 6*zoomFactor);
   } else if (duur === 2) {
-    ctx.fillRect(cx - 10*zoomFactor, midY, 20*zoomFactor, 7*zoomFactor);
+    ctx.fillRect(cx - 10*zoomFactor, midY + 2, 20*zoomFactor, 6*zoomFactor);
   } else if (duur === 4) {
     ctx.beginPath();
-    ctx.moveTo(cx, midY - 12*zoomFactor);
-    ctx.lineTo(cx + 6*zoomFactor, midY - 5*zoomFactor);
-    ctx.lineTo(cx - 3*zoomFactor, midY);
-    ctx.lineTo(cx + 5*zoomFactor, midY + 5*zoomFactor);
-    ctx.lineTo(cx, midY + 12*zoomFactor);
+    ctx.moveTo(cx, midY - 10*zoomFactor);
+    ctx.lineTo(cx + 5*zoomFactor, midY - 4*zoomFactor);
+    ctx.lineTo(cx - 3*zoomFactor, midY + 1);
+    ctx.lineTo(cx + 4*zoomFactor, midY + 6*zoomFactor);
+    ctx.lineTo(cx, midY + 11*zoomFactor);
     ctx.stroke();
   } else if (duur === 8) {
-    ctx.beginPath(); ctx.arc(cx+3, midY-7*zoomFactor, 4*zoomFactor, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(cx+3, midY-7*zoomFactor); ctx.lineTo(cx-5*zoomFactor, midY+9*zoomFactor); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx+3, midY-6*zoomFactor, 4*zoomFactor, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx+3, midY-6*zoomFactor); ctx.lineTo(cx-4*zoomFactor, midY+8*zoomFactor); ctx.stroke();
   } else if (duur === 16) {
-    ctx.beginPath(); ctx.arc(cx+3, midY-10*zoomFactor, 3*zoomFactor, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx+3, midY-9*zoomFactor, 3*zoomFactor, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(cx+3, midY-2*zoomFactor, 3*zoomFactor, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(cx+3, midY-10*zoomFactor); ctx.lineTo(cx-5*zoomFactor, midY+9*zoomFactor); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+3, midY-9*zoomFactor); ctx.lineTo(cx-4*zoomFactor, midY+8*zoomFactor); ctx.stroke();
   }
   ctx.restore();
 }
@@ -590,7 +561,6 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-// Touch
 canvas.addEventListener("contextmenu", function(e) { e.preventDefault(); });
 
 let touchStartX = 0, touchStartScrollX = 0;
@@ -604,7 +574,6 @@ function getTouchDist(e) {
 
 canvas.addEventListener("touchstart", function(e) {
   e.preventDefault();
-
   if (e.touches.length === 2) {
     isPinching = true; isTouching = false; ghost = null;
     pinchStartDist = getTouchDist(e);
@@ -613,16 +582,13 @@ canvas.addEventListener("touchstart", function(e) {
     touchStartScrollX = scrollX;
     return;
   }
-
   if (!audioUnlocked) { audioUnlocked = true; getAudio(); }
   isPinching = false; isTouching = true;
-
   const t = e.touches[0];
   const tick = xNaarTick(t.clientX);
   const ni = yNaarNoteIndex(t.clientY);
-
   if (activeTool === "wis") {
-    notes = notes.filter(function(n) { return Math.abs(tickNaarX(n.tick) - t.clientX) > 20; });
+    notes = notes.filter(function(n) { return Math.abs(tickNaarX(n.tick) - (t.clientX - canvas.getBoundingClientRect().left)) > 22; });
     return;
   }
   if (activeTool === "rust") {
@@ -635,7 +601,6 @@ canvas.addEventListener("touchstart", function(e) {
 
 canvas.addEventListener("touchmove", function(e) {
   e.preventDefault();
-
   if (e.touches.length === 2) {
     if (isPinching) {
       const newDist = getTouchDist(e);
@@ -647,13 +612,11 @@ canvas.addEventListener("touchmove", function(e) {
     scrollX = Math.max(0, Math.min(maxScroll, touchStartScrollX + (touchStartX - midX)));
     return;
   }
-
   if (!isTouching || activeTool === "wis") return;
   const t = e.touches[0];
   const tick = xNaarTick(t.clientX);
   const ni = yNaarNoteIndex(t.clientY);
   const newNote = noteMap[ni];
-
   if (activeTool === "rust") {
     ghost = { tick: tick, isRust: true, duur: activeDuur };
   } else {
