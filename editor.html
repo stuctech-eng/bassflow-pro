@@ -139,7 +139,7 @@ const NOTE_STEP = 9;
 const STAFF_LINE_INDICES = [2,4,6,8,10];
 const TAB_STRINGS = 4;
 const BASE_TAB_GAP = 22;
-const GHOST_OFFSET = 40;
+const GHOST_OFFSET = 0;
 
 const BASE_MAAT_W = 220;
 
@@ -174,12 +174,11 @@ function xNaarMaatBeat(clientX) {
 
 function yNaarNoteIndex(clientY) {
   const rect = canvas.getBoundingClientRect();
-  const scaleY = canvas.height / rect.height;
-  const canvasY = (clientY - rect.top) * scaleY;
-  const effectieveY = canvasY - GHOST_OFFSET;
-  const idx = Math.round((effectieveY - STAFF_TOP) / SS());
+  const canvasY = (clientY - rect.top) / rect.height * canvas.height;
+  const idx = Math.round((canvasY - STAFF_TOP) / SS());
   return Math.max(0, Math.min(noteMap.length - 1, idx));
 }
+
 
 
 function duurInSubBeats(d) {
@@ -554,12 +553,9 @@ function drawGhost() {
     const ni = noteMap.indexOf(ghost.note);
     const y = nootY(ni);
     drawNootVorm(x, y, ni, activeDuur, PINK, 0.6);
-    ctx.save(); ctx.globalAlpha = 0.2; ctx.strokeStyle = PINK;
-    ctx.lineWidth = 1; ctx.setLineDash([3,4]);
-    ctx.beginPath(); ctx.moveTo(x, y+8); ctx.lineTo(x, y+GHOST_OFFSET); ctx.stroke();
-    ctx.setLineDash([]); ctx.restore();
   }
 }
+
 
 function loop() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
