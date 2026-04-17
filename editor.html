@@ -8,44 +8,47 @@
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body { margin: 0; background: #fff; color: #111; font-family: sans-serif; overflow: hidden; overscroll-behavior: contain; user-select: none; -webkit-user-select: none; display: flex; flex-direction: column; height: 100vh; }
 
-    #canvas-area { flex: 1; overflow: hidden; position: relative; background: #fff; }
+    #canvas-area { flex: 1; overflow: hidden; background: #fff; }
     canvas { background: #fff; display: block; touch-action: none; }
 
-    #bottombar { background: #ffffff; border-top: 1px solid #eee; padding: 8px 10px; flex-shrink: 0; }
-#row1 { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-#row2 { display: flex; align-items: center; gap: 6px; }
+    #bottombar { background: #fff; border-top: 1.5px solid #eee; padding: 8px 10px 10px 10px; flex-shrink: 0; }
+    #row1 { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+    #row2 { display: flex; align-items: center; gap: 6px; }
 
-.tb { background: #f5f5f5; color: #444; border: 1px solid #e0e0e0; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
-.tb.active { background: #FF2D7A; color: #fff; border-color: #FF2D7A; }
-.tb.play { background: #FF2D7A; color: #fff; border-color: #FF2D7A; min-width: 72px; font-size: 13px; }
-.tb.play.playing { background: #fff; color: #FF2D7A; border-color: #FF2D7A; }
-.tb.danger { color: #E53935; border-color: #e0e0e0; }
-.tb.midi { color: #cc8800; border-color: #e0e0e0; }
-.tb.ai { color: #8B2FC9; border-color: #e0e0e0; }
-.tb.bg { color: #0088cc; border-color: #e0e0e0; }
-.sep { width: 1px; height: 28px; background: #eee; flex-shrink: 0; margin: 0 2px; }
+    .tb { background: #f5f5f7; color: #444; border: 1px solid #e0e0e0; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0; -webkit-appearance: none; }
+    .tb.active { background: #FF2D7A; color: #fff; border-color: #FF2D7A; }
+    .tb.play { background: #FF2D7A; color: #fff; border-color: #FF2D7A; min-width: 72px; font-size: 13px; }
+    .tb.play.playing { background: #fff0f5; color: #FF2D7A; border-color: #FF2D7A; }
+    .tb.danger { background: #f5f5f7; color: #E53935; border-color: #e0e0e0; }
+    .tb.midi { background: #f5f5f7; color: #cc8800; border-color: #e0e0e0; }
+    .tb.ai { background: #f5f5f7; color: #8B2FC9; border-color: #e0e0e0; }
+    .tb.bg { background: #f5f5f7; color: #0088cc; border-color: #e0e0e0; }
+    .sep { width: 1px; height: 28px; background: #e8e8e8; flex-shrink: 0; margin: 0 2px; }
+    label.tb { display: inline-flex; align-items: center; justify-content: center; }
+    input[type="file"] { display: none; }
 
+    #bpm-wrap { display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0; }
+    #bpm-label { font-size: 10px; color: #FF2D7A; font-weight: 800; min-width: 52px; white-space: nowrap; }
+    #bpm-slider { flex: 1; accent-color: #FF2D7A; min-width: 50px; }
+    #maat-select { background: #f5f5f7; color: #444; border: 1px solid #e0e0e0; padding: 7px 6px; border-radius: 8px; font-size: 11px; font-weight: 700; -webkit-appearance: none; }
 
-    #bpm-wrap { display: flex; align-items: center; gap: 5px; flex: 1; }
-    #bpm-label { font-size: 10px; color: #FF2D7A; font-weight: 800; min-width: 50px; }
-    #bpm-slider { flex: 1; accent-color: #FF2D7A; min-width: 60px; }
-    #maat-select { background: #fff; color: #555; border: 1px solid #ddd; padding: 7px 6px; border-radius: 8px; font-size: 11px; font-weight: 700; }
+    #bg-controls { display: none; position: fixed; bottom: 115px; left: 10px; right: 10px; background: #fff; border: 1px solid #eee; border-radius: 10px; padding: 8px 12px; z-index: 50; align-items: center; gap: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    #bg-controls.open { display: flex; }
+    #opacity-slider { flex: 1; accent-color: #FF2D7A; }
 
-    #bg-controls { display: none; position: fixed; bottom: 110px; left: 10px; right: 10px; background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 8px 12px; z-index: 50; align-items: center; gap: 8px; }
-
-
-    #popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; flex-direction: column; padding: 20px; }
+    #popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 200; align-items: center; justify-content: center; flex-direction: column; padding: 20px; }
     #popup.open { display: flex; }
-    #popup-title { font-size: 13px; font-weight: 800; color: #FF2D7A; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
-    #popup-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 300px; }
-    .popup-item { background: #fff; border: 1.5px solid #ddd; border-radius: 10px; padding: 14px 8px; text-align: center; cursor: pointer; }
+    #popup-inner { background: #fff; border-radius: 16px; padding: 20px; width: 100%; max-width: 320px; }
+    #popup-title { font-size: 13px; font-weight: 800; color: #FF2D7A; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; text-align: center; }
+    #popup-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .popup-item { background: #f5f5f7; border: 1.5px solid #e0e0e0; border-radius: 10px; padding: 12px 6px; text-align: center; cursor: pointer; }
     .popup-item.active-item { border-color: #FF2D7A; background: #fff0f5; }
-    .popup-item .pi-symbool { font-size: 26px; color: #111; line-height: 1.4; }
-    .popup-item .pi-naam { font-size: 10px; color: #888; margin-top: 4px; font-weight: 700; }
-    .popup-item .pi-tellen { font-size: 9px; color: #bbb; margin-top: 2px; }
-    #popup-sluit { margin-top: 16px; background: #eee; color: #555; border: none; border-radius: 20px; padding: 10px 28px; font-size: 13px; font-weight: 800; cursor: pointer; }
+    .popup-item .pi-symbool { font-size: 24px; color: #111; line-height: 1.3; }
+    .popup-item .pi-naam { font-size: 10px; color: #666; margin-top: 3px; font-weight: 700; }
+    .popup-item .pi-tellen { font-size: 9px; color: #aaa; margin-top: 2px; }
+    #popup-sluit { margin-top: 12px; width: 100%; background: #f5f5f7; color: #666; border: none; border-radius: 10px; padding: 11px; font-size: 13px; font-weight: 800; cursor: pointer; }
 
-    #status-msg { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(255,45,122,0.9); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; display: none; z-index: 300; white-space: nowrap; }
+    #status-msg { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); background: #FF2D7A; color: #fff; padding: 7px 18px; border-radius: 20px; font-size: 12px; font-weight: 700; display: none; z-index: 300; white-space: nowrap; box-shadow: 0 2px 10px rgba(255,45,122,0.3); }
     #status-msg.show { display: block; }
   </style>
 </head>
@@ -89,7 +92,7 @@
 </div>
 
 <div id="bg-controls">
-  <span style="font-size:10px;color:#888;white-space:nowrap">📷 Opacity</span>
+  <span style="font-size:11px;color:#888;white-space:nowrap">📷 Opacity</span>
   <input type="range" id="opacity-slider" min="0" max="100" value="25" oninput="setBGOpacity(this.value)">
   <button class="tb danger" style="padding:5px 9px;font-size:11px" id="bgVerwijderBtn">✕</button>
 </div>
@@ -97,17 +100,19 @@
 <div id="status-msg"></div>
 
 <div id="popup">
-  <div id="popup-title">Kies nootwaarde</div>
-  <div id="popup-grid"></div>
-  <button id="popup-sluit" onclick="sluitPopup()">Annuleer</button>
+  <div id="popup-inner">
+    <div id="popup-title">Kies nootwaarde</div>
+    <div id="popup-grid"></div>
+    <button id="popup-sluit" onclick="sluitPopup()">Annuleer</button>
+  </div>
 </div>
 
 <script>
 const PINK = "#FF2D7A";
-const CYAN = "#0066cc";
-const BLACK = "#111";
-const GRAY = "#999";
+const BLAUW = "#0066cc";
+const ZWART = "#111111";
 
+// Audio -- alleen starten na eerste aanraking
 let audioCtx = null, audioUnlocked = false;
 function getAudio() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -115,6 +120,7 @@ function getAudio() {
   return audioCtx;
 }
 
+// State
 let isPlaying = false, currentBeat = 0, playbackTimer = null;
 let activeTool = "noot";
 let activeDuur = 4;
@@ -130,49 +136,56 @@ let bgImage = null;
 let bgOpacity = 0.25;
 let aiBezig = false;
 
+// Layout constanten
 const MATEN = 8;
-const START_MARGIN = 62;
-const STAFF_TOP = 22;
-const NOTE_STEP = 9;
-const STAFF_LINE_INDICES = [2,4,6,8,10];
+const START_MARGIN = 58;
+const STAFF_TOP = 28;
+const NOTE_STEP = 10;        // pixels per nootpositie
+const STAFF_LINES = [2,4,6,8,10]; // nootindices voor 5 balkslijnen
 const TAB_STRINGS = 4;
-const BASE_TAB_GAP = 22;
-const GHOST_OFFSET = 85;
+const BASE_TAB_GAP = 24;
 const BASE_MAAT_W = 220;
+const GHOST_OFFSET = 80;     // noot zweeft 80px boven vinger
 
 function MW()  { return BASE_MAAT_W * zoom; }
 function SS()  { return NOTE_STEP * zoom; }
 function TG()  { return BASE_TAB_GAP * zoom; }
-function TT()  { return STAFF_TOP + 17 * SS() + 30; }
-function CH()  { return TT() + TAB_STRINGS * TG() + 20; }
+function TT()  { return STAFF_TOP + 16 * SS() + 35; }
+function CH()  { return TT() + TAB_STRINGS * TG() + 15; }
 
+// Beat naar X positie -- noten verdeeld in maatTeller+1 gelijke delen
 function beatNaarX(maat, beat) {
-  const maatX = START_MARGIN + maat * MW() - scrollX;
   const stapBreedte = MW() / (maatTeller + 1);
-  return maatX + (beat + 1) * stapBreedte;
+  return START_MARGIN + maat * MW() + (beat + 1) * stapBreedte - scrollX;
 }
 
 function maatstreepX(maat) {
   return START_MARGIN + maat * MW() - scrollX;
 }
 
+// X naar maat + beat -- met snap
 function xNaarMaatBeat(clientX) {
   const rect = canvas.getBoundingClientRect();
-  const x = (clientX - rect.left) * (canvas.width / rect.width) + scrollX - START_MARGIN;
+  const scaleX = canvas.width / rect.width;
+  const x = (clientX - rect.left) * scaleX + scrollX - START_MARGIN;
   const maat = Math.max(0, Math.min(MATEN - 1, Math.floor(x / MW())));
-  const binnenMaat = x - maat * MW();
+  const binnenMaat = Math.max(0, x - maat * MW());
   const stapBreedte = MW() / (maatTeller + 1);
   const rawBeat = binnenMaat / stapBreedte - 1;
-  const subBeats = duurInSubBeats(activeDuur);
-  const snappedSub = Math.round(rawBeat * subBeats);
-  const beat = Math.max(0, Math.min(maatTeller - 1/subBeats, snappedSub / subBeats));
+  const sub = duurInSubBeats(activeDuur);
+  const snapped = Math.round(rawBeat * sub) / sub;
+  const beat = Math.max(0, Math.min(maatTeller - 1/sub, snapped));
   return { maat: maat, beat: beat };
 }
 
+// Y naar nootindex -- gecorrigeerd voor ghost offset
 function yNaarNoteIndex(clientY) {
   const rect = canvas.getBoundingClientRect();
-  const y = (clientY - rect.top) * (canvas.height / rect.height) - GHOST_OFFSET;
-  const idx = Math.round((y - STAFF_TOP) / SS());
+  const scaleY = canvas.height / rect.height;
+  const canvasY = (clientY - rect.top) * scaleY;
+  // Trek ghost offset af zodat noot boven vinger zweeft
+  const effectieveY = canvasY - GHOST_OFFSET;
+  const idx = Math.round((effectieveY - STAFF_TOP) / SS());
   return Math.max(0, Math.min(noteMap.length - 1, idx));
 }
 
@@ -249,7 +262,9 @@ function herbereken() {
   canvas.height = canvasArea.clientHeight;
 }
 herbereken();
-window.addEventListener("resize", herbereken);
+window.addEventListener("resize", function() {
+  setTimeout(herbereken, 50);
+});
 
 function zoomIn()  { zoom = Math.min(2.5, parseFloat((zoom+0.25).toFixed(2))); }
 function zoomOut() { zoom = Math.max(0.4, parseFloat((zoom-0.25).toFixed(2))); }
@@ -329,20 +344,27 @@ document.getElementById("clearBtn").addEventListener("touchend", function(e) {
   notes = []; setStatus("Gewist");
 });
 
+// F-sleutel -- kleiner dan vorig
 function drawFSleutel(x, y, h) {
   ctx.save();
   ctx.strokeStyle = PINK; ctx.fillStyle = PINK;
-  ctx.lineWidth = h * 0.055;
+  ctx.lineWidth = Math.max(1, h * 0.05);
+
+  // Hoofdbol
   ctx.beginPath();
-  ctx.arc(x + h*0.22, y + h*0.15, h*0.12, 0, Math.PI*2);
+  ctx.arc(x + h*0.2, y + h*0.14, h*0.1, 0, Math.PI*2);
   ctx.fill();
+
+  // Staart
   ctx.beginPath();
-  ctx.moveTo(x + h*0.22, y + h*0.03);
-  ctx.bezierCurveTo(x + h*0.7, y + h*0.03, x + h*0.7, y + h*0.38, x + h*0.22, y + h*0.52);
-  ctx.bezierCurveTo(x - h*0.1, y + h*0.65, x + h*0.08, y + h*0.92, x + h*0.22, y + h*0.97);
+  ctx.moveTo(x + h*0.2, y + h*0.04);
+  ctx.bezierCurveTo(x + h*0.6, y + h*0.04, x + h*0.6, y + h*0.36, x + h*0.2, y + h*0.5);
+  ctx.bezierCurveTo(x - h*0.08, y + h*0.64, x + h*0.06, y + h*0.88, x + h*0.2, y + h*0.94);
   ctx.stroke();
-  ctx.beginPath(); ctx.arc(x + h*0.72, y + h*0.25, h*0.042, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(x + h*0.72, y + h*0.38, h*0.042, 0, Math.PI*2); ctx.fill();
+
+  // Twee puntjes
+  ctx.beginPath(); ctx.arc(x + h*0.62, y + h*0.24, h*0.038, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x + h*0.62, y + h*0.36, h*0.038, 0, Math.PI*2); ctx.fill();
   ctx.restore();
 }
 
@@ -357,7 +379,7 @@ function drawStaff() {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, W, H);
 
-  // Achtergrond foto
+  // Achtergrond foto -- volle breedte, eigen verhouding
   if (bgImage) {
     ctx.save();
     ctx.globalAlpha = bgOpacity;
@@ -369,53 +391,53 @@ function drawStaff() {
   // Maatstrepen
   for (let m = 0; m <= MATEN; m++) {
     const x = maatstreepX(m);
-    if (x < -5 || x > W + 5) continue;
-    ctx.strokeStyle = "#333";
+    if (x < -10 || x > W + 10) continue;
+    ctx.strokeStyle = "#222";
     ctx.lineWidth = m === 0 || m === MATEN ? 2.5 : 1.5;
     ctx.beginPath();
-    ctx.moveTo(x, STAFF_TOP - 5);
-    ctx.lineTo(x, tt + TAB_STRINGS * tg + 5);
+    ctx.moveTo(x, STAFF_TOP - 8);
+    ctx.lineTo(x, tt + TAB_STRINGS * tg + 6);
     ctx.stroke();
     if (m < MATEN) {
-      ctx.fillStyle = "#999"; ctx.font = "bold 9px Arial"; ctx.textAlign = "left";
-      ctx.fillText("" + (m+1), x + 3, STAFF_TOP - 3);
+      ctx.fillStyle = "#aaa"; ctx.font = "bold 9px Arial"; ctx.textAlign = "left";
+      ctx.fillText("" + (m+1), x + 3, STAFF_TOP - 2);
     }
   }
 
-  // Sub-beat lijnen
+  // Sub-beat hulplijnen
   for (let m = 0; m < MATEN; m++) {
     const stapBreedte = MW() / (maatTeller + 1);
     for (let b = 1; b < maatTeller; b++) {
       const x = maatstreepX(m) + (b + 1) * stapBreedte;
       if (x < 0 || x > W) continue;
-      ctx.strokeStyle = "#ddd"; ctx.lineWidth = 1;
+      ctx.strokeStyle = "#eee"; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(x, STAFF_TOP); ctx.lineTo(x, STAFF_TOP + 10 * ss); ctx.stroke();
     }
   }
 
-  // 5 notenbalkslijnen
+  // 5 notenbalkslijnen op STAFF_LINES indices
   ctx.strokeStyle = "#333"; ctx.lineWidth = 1;
-  STAFF_LINE_INDICES.forEach(function(i) {
+  STAFF_LINES.forEach(function(i) {
     const y = STAFF_TOP + i * ss;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   });
 
-  // F-sleutel
-  drawFSleutel(4, STAFF_TOP + ss * 0.5, ss * 9);
+  // F-sleutel -- kleiner
+  drawFSleutel(4, STAFF_TOP + ss * 0.8, ss * 7.5);
 
-  // Nootlabels links
-  ctx.font = "8px Arial"; ctx.fillStyle = "#ccc";
+  // Nootlabels links -- licht grijs
+  ctx.font = "7px Arial"; ctx.fillStyle = "#ddd";
   noteMap.forEach(function(n, i) {
     ctx.textAlign = "right";
-    ctx.fillText(noteNamen[n], START_MARGIN - 3, STAFF_TOP + i * ss + 3);
+    ctx.fillText(noteNamen[n], START_MARGIN - 2, STAFF_TOP + i * ss + 3);
   });
 
-  // TAB lijnen
+  // TAB lijnen -- 4 snaren G D A E
   ["G","D","A","E"].forEach(function(l, i) {
     const y = tt + i * tg;
-    ctx.strokeStyle = "#999"; ctx.lineWidth = 1;
+    ctx.strokeStyle = "#aaa"; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-    ctx.fillStyle = "#999"; ctx.font = "bold 9px Arial"; ctx.textAlign = "left";
+    ctx.fillStyle = "#aaa"; ctx.font = "bold 9px Arial"; ctx.textAlign = "left";
     ctx.fillText(l, 5, y + 4);
   });
 
@@ -425,8 +447,8 @@ function drawStaff() {
     const barW = Math.max(30, (W / totBreedte) * W);
     const maxScroll = totBreedte - W;
     const barX = maxScroll > 0 ? (scrollX / maxScroll) * (W - barW) : 0;
-    ctx.fillStyle = "#eee"; ctx.fillRect(0, H - 4, W, 4);
-    ctx.fillStyle = "#bbb"; ctx.fillRect(barX, H - 4, barW, 4);
+    ctx.fillStyle = "#f0f0f0"; ctx.fillRect(0, H - 4, W, 4);
+    ctx.fillStyle = "#ccc"; ctx.fillRect(barX, H - 4, barW, 4);
   }
 
   // Playhead
@@ -435,7 +457,7 @@ function drawStaff() {
     const b = (currentBeat - m) * maatTeller;
     const x = beatNaarX(m, b);
     ctx.strokeStyle = PINK; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(x, STAFF_TOP-5); ctx.lineTo(x, tt + TAB_STRINGS * tg + 5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, STAFF_TOP-8); ctx.lineTo(x, tt + TAB_STRINGS * tg + 6); ctx.stroke();
   }
 }
 
@@ -447,44 +469,52 @@ function drawNootVorm(cx, cy, ni, duur, kleur, alpha) {
   const ss = SS();
   const gevuld = duur >= 4;
   const isHoog = ni <= 8;
-  const sLen = ss * 3.5;
-  const sx = isHoog ? cx + 6 : cx - 6;
+  const sLen = ss * 3.2;
+  const sx = isHoog ? cx + 5 : cx - 5;
   const sy = isHoog ? cy - sLen : cy + sLen;
 
+  // Noot hoofd
   ctx.beginPath();
-  ctx.ellipse(cx, cy, 7*zoom, 5*zoom, -0.3, 0, Math.PI*2);
+  ctx.ellipse(cx, cy, 6.5*zoom, 4.5*zoom, -0.25, 0, Math.PI*2);
   if (gevuld) { ctx.fillStyle = kleur; ctx.fill(); }
-  else { ctx.strokeStyle = kleur; ctx.lineWidth = 1.5; ctx.stroke(); }
+  else {
+    ctx.strokeStyle = kleur; ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
 
+  // Stiel
   if (duur !== 1) {
     ctx.strokeStyle = kleur; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(sx, cy); ctx.lineTo(sx, sy); ctx.stroke();
   }
+
+  // Vlag achtste
   if (duur === 8 || duur === 16) {
     ctx.beginPath();
-    if (isHoog) { ctx.moveTo(sx, sy); ctx.bezierCurveTo(sx+14, sy+8, sx+10, sy+16, sx, sy+20); }
-    else { ctx.moveTo(sx, sy); ctx.bezierCurveTo(sx-14, sy-8, sx-10, sy-16, sx, sy-20); }
+    if (isHoog) { ctx.moveTo(sx, sy); ctx.bezierCurveTo(sx+12, sy+6, sx+9, sy+13, sx, sy+17); }
+    else { ctx.moveTo(sx, sy); ctx.bezierCurveTo(sx-12, sy-6, sx-9, sy-13, sx, sy-17); }
     ctx.strokeStyle = kleur; ctx.lineWidth = 1.5; ctx.stroke();
   }
+  // Extra vlag zestiende
   if (duur === 16) {
     ctx.beginPath();
-    if (isHoog) { ctx.moveTo(sx, sy+10); ctx.bezierCurveTo(sx+14, sy+18, sx+10, sy+26, sx, sy+30); }
-    else { ctx.moveTo(sx, sy-10); ctx.bezierCurveTo(sx-14, sy-18, sx-10, sy-26, sx, sy-30); }
+    if (isHoog) { ctx.moveTo(sx, sy+9); ctx.bezierCurveTo(sx+12, sy+15, sx+9, sy+22, sx, sy+26); }
+    else { ctx.moveTo(sx, sy-9); ctx.bezierCurveTo(sx-12, sy-15, sx-9, sy-22, sx, sy-26); }
     ctx.strokeStyle = kleur; ctx.lineWidth = 1.5; ctx.stroke();
   }
 
-  const s1y = STAFF_TOP + STAFF_LINE_INDICES[0] * ss;
-  const s5y = STAFF_TOP + STAFF_LINE_INDICES[4] * ss;
-  if (cy < s1y - 2) {
-    for (let ly = s1y - ss; ly >= cy - ss; ly -= ss) {
-      ctx.strokeStyle = kleur; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(cx-10, ly); ctx.lineTo(cx+10, ly); ctx.stroke();
+  // Hulplijnen boven/onder balk
+  const s1y = STAFF_TOP + STAFF_LINES[0] * ss;
+  const s5y = STAFF_TOP + STAFF_LINES[4] * ss;
+  ctx.strokeStyle = kleur; ctx.lineWidth = 1;
+  if (cy < s1y - 3) {
+    for (let ly = s1y - ss; ly >= cy - ss/2; ly -= ss) {
+      ctx.beginPath(); ctx.moveTo(cx-9, ly); ctx.lineTo(cx+9, ly); ctx.stroke();
     }
   }
-  if (cy > s5y + 2) {
-    for (let ly = s5y + ss; ly <= cy + ss; ly += ss) {
-      ctx.strokeStyle = kleur; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(cx-10, ly); ctx.lineTo(cx+10, ly); ctx.stroke();
+  if (cy > s5y + 3) {
+    for (let ly = s5y + ss; ly <= cy + ss/2; ly += ss) {
+      ctx.beginPath(); ctx.moveTo(cx-9, ly); ctx.lineTo(cx+9, ly); ctx.stroke();
     }
   }
   ctx.restore();
@@ -496,21 +526,30 @@ function drawRust(cx, duur, kleur, alpha) {
   ctx.fillStyle = kleur; ctx.strokeStyle = kleur;
   const ss = SS();
   const midY = STAFF_TOP + 5 * ss;
-  ctx.lineWidth = 2 * zoom;
-  if (duur === 1) { ctx.fillRect(cx-10*zoom, midY-ss*1.2, 20*zoom, 6*zoom); }
-  else if (duur === 2) { ctx.fillRect(cx-10*zoom, midY+2, 20*zoom, 6*zoom); }
-  else if (duur === 4) {
+  ctx.lineWidth = 1.5 * zoom;
+
+  if (duur === 1) {
+    ctx.fillRect(cx - 9*zoom, midY - ss, 18*zoom, 5*zoom);
+  } else if (duur === 2) {
+    ctx.fillRect(cx - 9*zoom, midY + 2, 18*zoom, 5*zoom);
+  } else if (duur === 4) {
+    ctx.lineWidth = 2 * zoom;
     ctx.beginPath();
-    ctx.moveTo(cx, midY-10*zoom); ctx.lineTo(cx+5*zoom, midY-4*zoom);
-    ctx.lineTo(cx-3*zoom, midY); ctx.lineTo(cx+4*zoom, midY+6*zoom);
-    ctx.lineTo(cx, midY+11*zoom); ctx.stroke();
+    ctx.moveTo(cx + 2*zoom, midY - 9*zoom);
+    ctx.lineTo(cx + 6*zoom, midY - 3*zoom);
+    ctx.lineTo(cx - 2*zoom, midY + 1*zoom);
+    ctx.lineTo(cx + 4*zoom, midY + 5*zoom);
+    ctx.lineTo(cx, midY + 10*zoom);
+    ctx.stroke();
   } else if (duur === 8) {
-    ctx.beginPath(); ctx.arc(cx+3, midY-6*zoom, 4*zoom, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(cx+3, midY-6*zoom); ctx.lineTo(cx-4*zoom, midY+8*zoom); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx+2, midY-5*zoom, 3.5*zoom, 0, Math.PI*2); ctx.fill();
+    ctx.lineWidth = 1.5*zoom;
+    ctx.beginPath(); ctx.moveTo(cx+2, midY-5*zoom); ctx.lineTo(cx-3*zoom, midY+7*zoom); ctx.stroke();
   } else if (duur === 16) {
-    ctx.beginPath(); ctx.arc(cx+3, midY-9*zoom, 3*zoom, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(cx+3, midY-2*zoom, 3*zoom, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(cx+3, midY-9*zoom); ctx.lineTo(cx-4*zoom, midY+8*zoom); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx+2, midY-8*zoom, 3*zoom, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx+2, midY-1*zoom, 3*zoom, 0, Math.PI*2); ctx.fill();
+    ctx.lineWidth = 1.5*zoom;
+    ctx.beginPath(); ctx.moveTo(cx+2, midY-8*zoom); ctx.lineTo(cx-3*zoom, midY+7*zoom); ctx.stroke();
   }
   ctx.restore();
 }
@@ -522,16 +561,16 @@ function drawNotes() {
     const x = beatNaarX(n.maat, n.beat);
     if (x < -30 || x > canvas.width + 30) return;
     if (n.isRust) {
-      drawRust(x, n.duur, BLACK);
+      drawRust(x, n.duur, ZWART);
     } else {
       const ni = noteMap.indexOf(n.note);
       const y = nootY(ni);
-      drawNootVorm(x, y, ni, n.duur, BLACK);
+      drawNootVorm(x, y, ni, n.duur, ZWART);
       const t = tabMap[n.note];
       if (t) {
         const ty = tt + (t.s-1) * tg;
         ctx.fillStyle = "#fff"; ctx.fillRect(x-9, ty-8, 18, 16);
-        ctx.fillStyle = CYAN; ctx.font = "bold 12px Arial"; ctx.textAlign = "center";
+        ctx.fillStyle = BLAUW; ctx.font = "bold 11px Arial"; ctx.textAlign = "center";
         ctx.fillText(t.f, x, ty+5);
       }
     }
@@ -547,7 +586,8 @@ function drawGhost() {
     const ni = noteMap.indexOf(ghost.note);
     const y = nootY(ni);
     drawNootVorm(x, y, ni, activeDuur, PINK, 0.6);
-    ctx.save(); ctx.globalAlpha = 0.2; ctx.strokeStyle = PINK;
+    // Stippellijn van noot naar vinger
+    ctx.save(); ctx.globalAlpha = 0.15; ctx.strokeStyle = PINK;
     ctx.lineWidth = 1; ctx.setLineDash([3,4]);
     ctx.beginPath(); ctx.moveTo(x, y+8); ctx.lineTo(x, y+GHOST_OFFSET); ctx.stroke();
     ctx.setLineDash([]); ctx.restore();
@@ -562,6 +602,7 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
+// Touch events
 canvas.addEventListener("contextmenu", function(e) { e.preventDefault(); });
 
 let touchStartX = 0, touchStartScrollX = 0;
@@ -575,6 +616,7 @@ function getTouchDist(e) {
 
 canvas.addEventListener("touchstart", function(e) {
   e.preventDefault();
+
   if (e.touches.length === 2) {
     isPinching = true; isTouching = false; ghost = null;
     pinchStartDist = getTouchDist(e);
@@ -583,17 +625,20 @@ canvas.addEventListener("touchstart", function(e) {
     touchStartScrollX = scrollX;
     return;
   }
+
   if (!audioUnlocked) { audioUnlocked = true; getAudio(); }
   isPinching = false; isTouching = true;
+
   const t = e.touches[0];
   const mb = xNaarMaatBeat(t.clientX);
   const ni = yNaarNoteIndex(t.clientY);
 
   if (activeTool === "wis") {
     const rect = canvas.getBoundingClientRect();
-    const cx = (t.clientX - rect.left) * (canvas.width / rect.width);
+    const scaleX = canvas.width / rect.width;
+    const cx = (t.clientX - rect.left) * scaleX;
     notes = notes.filter(function(n) {
-      return Math.abs(beatNaarX(n.maat, n.beat) - cx) > MW() / (maatTeller + 1) * 0.45;
+      return Math.abs(beatNaarX(n.maat, n.beat) - cx) > MW() / (maatTeller+1) * 0.5;
     });
     return;
   }
@@ -607,6 +652,7 @@ canvas.addEventListener("touchstart", function(e) {
 
 canvas.addEventListener("touchmove", function(e) {
   e.preventDefault();
+
   if (e.touches.length === 2) {
     if (isPinching) {
       const newDist = getTouchDist(e);
@@ -617,11 +663,13 @@ canvas.addEventListener("touchmove", function(e) {
     scrollX = Math.max(0, Math.min(maxScroll, touchStartScrollX + (touchStartX - midX)));
     return;
   }
+
   if (!isTouching || activeTool === "wis") return;
   const t = e.touches[0];
   const mb = xNaarMaatBeat(t.clientX);
   const ni = yNaarNoteIndex(t.clientY);
   const newNote = noteMap[ni];
+
   if (activeTool === "rust") {
     ghost = { maat: mb.maat, beat: mb.beat, isRust: true, duur: activeDuur };
   } else {
@@ -635,7 +683,8 @@ canvas.addEventListener("touchend", function(e) {
   isPinching = false;
   if (isTouching && ghost && activeTool !== "wis") {
     const bestaand = notes.findIndex(function(n) {
-      return n.maat === ghost.maat && Math.abs(n.beat - ghost.beat) < 0.01 &&
+      return n.maat === ghost.maat &&
+             Math.abs(n.beat - ghost.beat) < 0.01 &&
              (n.isRust ? ghost.isRust : n.note === ghost.note);
     });
     if (bestaand !== -1) { notes.splice(bestaand, 1); }
@@ -653,10 +702,10 @@ function playBassTone(noteName) {
     osc.type = "triangle";
     osc.frequency.setValueAtTime(frequencies[noteName], ac.currentTime);
     gain.gain.setValueAtTime(0, ac.currentTime);
-    gain.gain.linearRampToValueAtTime(0.3, ac.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.5);
+    gain.gain.linearRampToValueAtTime(0.28, ac.currentTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.45);
     osc.connect(gain); gain.connect(ac.destination);
-    osc.start(); osc.stop(ac.currentTime + 0.5);
+    osc.start(); osc.stop(ac.currentTime + 0.45);
   } catch(e) {}
 }
 
@@ -670,13 +719,13 @@ function togglePlayback() {
   } else {
     isPlaying = true; currentBeat = 0;
     btn.textContent = "⏹ STOP"; btn.classList.add("playing");
-    const stap = 1 / maatTeller / 4;
+    const stap = 0.25 / maatTeller;
     const msPerStap = (60 / bpm) * stap * 1000 * maatTeller;
     playbackTimer = setInterval(function() {
       const m = Math.floor(currentBeat);
-      const b = (currentBeat - m) * maatTeller;
+      const b = parseFloat(((currentBeat - m) * maatTeller).toFixed(4));
       notes.filter(function(n) {
-        return n.maat === m && Math.abs(n.beat - b) < stap * maatTeller * 0.5 && !n.isRust;
+        return !n.isRust && n.maat === m && Math.abs(n.beat - b) < stap * maatTeller * 0.6;
       }).forEach(function(h) { playBassTone(h.note); });
       currentBeat = parseFloat((currentBeat + stap).toFixed(6));
       if (currentBeat >= MATEN) currentBeat = 0;
@@ -700,7 +749,13 @@ async function handleAIUpload(input) {
       if (data.noten && data.noten.length > 0) {
         data.noten.forEach(function(n, i) {
           if (noteMap.includes(n.note)) {
-            notes.push({ maat: Math.floor(i/maatTeller), beat: i%maatTeller, note: n.note, duur: n.duur||4, isRust: false });
+            notes.push({
+              maat: Math.floor(i / maatTeller),
+              beat: i % maatTeller,
+              note: n.note,
+              duur: n.duur || 4,
+              isRust: false
+            });
           }
         });
         setStatus("✓ " + data.noten.length + " noten geïmporteerd!");
@@ -714,7 +769,9 @@ async function handleAIUpload(input) {
 function exportMIDI() {
   if (notes.length === 0) { setStatus("Zet eerst noten neer!"); return; }
   const PPQ = 480;
-  const header = [0x4d,0x54,0x68,0x64,0x00,0x00,0x00,0x06,0x00,0x00,0x00,0x01,(PPQ>>8)&0xff,PPQ&0xff];
+  const header = [0x4d,0x54,0x68,0x64,0x00,0x00,0x00,0x06,
+                  0x00,0x00,0x00,0x01,(PPQ>>8)&0xff,PPQ&0xff];
+
   function writeVLQ(v) {
     v = Math.max(0, Math.round(v));
     if (v < 128) return [v];
@@ -723,24 +780,35 @@ function exportMIDI() {
     for (let i = 0; i < bytes.length-1; i++) bytes[i] |= 0x80;
     return bytes;
   }
-  const sorted = notes.filter(function(n) { return !n.isRust; })
-    .sort(function(a,b) { return (a.maat*maatTeller+a.beat)-(b.maat*maatTeller+b.beat); });
+
+  const sorted = notes
+    .filter(function(n) { return !n.isRust; })
+    .sort(function(a,b) {
+      return (a.maat*maatTeller+a.beat) - (b.maat*maatTeller+b.beat);
+    });
+
   let events = [], lastTick = 0;
   sorted.forEach(function(n) {
-    const tick = Math.round((n.maat*maatTeller+n.beat)*PPQ);
-    const durTicks = Math.round(duurInBeats(n.duur)*PPQ);
+    const tick = Math.round((n.maat * maatTeller + n.beat) * PPQ);
+    const durTicks = Math.round(duurInBeats(n.duur) * PPQ);
     const pitch = midiPitches[n.note];
-    events = events.concat(writeVLQ(tick-lastTick),[0x90,pitch,0x64],writeVLQ(durTicks),[0x80,pitch,0x00]);
+    events = events.concat(
+      writeVLQ(tick - lastTick), [0x90, pitch, 0x64],
+      writeVLQ(durTicks), [0x80, pitch, 0x00]
+    );
     lastTick = tick + durTicks;
   });
-  events = events.concat([0x00,0xff,0x2f,0x00]);
+  events = events.concat([0x00, 0xff, 0x2f, 0x00]);
+
   const trackTag = [0x4d,0x54,0x72,0x6b];
   const len = events.length;
   const size = [(len>>24)&0xff,(len>>16)&0xff,(len>>8)&0xff,len&0xff];
   const fullFile = new Uint8Array([...header,...trackTag,...size,...events]);
-  const blob = new Blob([fullFile],{type:"audio/midi"});
+  const blob = new Blob([fullFile], {type:"audio/midi"});
   const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob); link.download = "bassline.mid"; link.click();
+  link.href = URL.createObjectURL(blob);
+  link.download = "bassline.mid";
+  link.click();
   setStatus("MIDI geëxporteerd!");
 }
 
