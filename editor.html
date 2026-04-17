@@ -3,142 +3,223 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
-  <title>BassFlow - Stable</title>
+  <title>BassFlow Pro Editor</title>
   <style>
-    :root { --accent: #00d4ff; --bg: #0d0d0d; }
+    :root { --accent: #00d4ff; --bg: #0d0d0d; --panel: #151515; }
     body { 
       margin: 0; background: var(--bg); color: white; font-family: sans-serif; 
-      overflow: hidden; touch-action: none; -webkit-user-select: none;
+      text-align: center; overflow: hidden; touch-action: none; -webkit-user-select: none;
     }
-    canvas { display: block; background: #111; touch-action: none; }
-    
-    .bottom-bar { 
-      position: fixed; bottom: 0; width: 100%; height: 100px;
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      background: #1a1a1a; border-top: 1px solid #333; gap: 10px; padding-bottom: 10px;
+    h3 { margin: 10px 0; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; font-size: 16px; }
+    canvas { 
+      background: var(--panel); display: block; margin: 0 auto; 
+      touch-action: none; border-bottom: 2px solid #333; cursor: crosshair;
     }
-    .controls-row { display: flex; gap: 20px; }
-    .btn { background: #222; border: 1px solid var(--accent); color: var(--accent); padding: 10px 25px; border-radius: 12px; font-weight: bold; }
-    .bpm-container { display: flex; align-items: center; gap: 10px; color: var(--accent); font-size: 14px; font-weight: bold; }
-    input[type=range] { width: 150px; accent-color: var(--accent); }
+    .controls { 
+      margin-top: 10px; display: flex; flex-wrap: wrap; justify-content: center; 
+      gap: 8px; padding: 0 10px; touch-action: auto;
+    }
+    button, label { 
+      background: #222; color: var(--accent); border: 1px solid var(--accent); 
+      padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px;
+    }
+    button:active, label:active { background: var(--accent); color: black; }
+    .midi-btn { border-color: #ffaa00; color: #ffaa00; }
+    input[type="file"] { display: none; }
   </style>
 </head>
 <body>
 
+<h3>BassFlow Pro Editor</h3>
 <canvas id="canvas"></canvas>
 
-<div class="bottom-bar">
-  <div class="bpm-container">
-    <span>TEMPO:</span>
-    <input type="range" id="bpmSlider" min="60" max="180" value="120" oninput="updateBPM(this.value)">
-    <span id="bpmVal">120</span>
-  </div>
-  <div class="controls-row">
-    <button class="btn" onclick="clearNotes()">CLEAR</button>
-    <button id="playBtn" class="btn" onclick="togglePlayback()">PLAY</button>
-  </div>
+<div class="controls">
+  <button onclick="clearNotes()">CLEAR</button>
+  <button id="playBtn" onclick="togglePlayback()">PLAY</button>
+  <label for="omr-upload">📷 OMR</label>
+  <input type="file" id="omr-upload" accept="image/*">
+  <button class="midi-btn" onclick="exportMIDI()">⬇️ MIDI</button>
 </div>
 
 <script>
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let isPlaying = false, currentBeat = 0, playbackInterval, omrImage = null;
+
+const frequencies = {
+  "g/3": 196.00, "f/3": 174.61, "e/3": 164.81, "d/3": 146.83, "c/3": 130.81,
+  "b/2": 123.47, "a/2": 110.00, "g/2": 98.00, "f/2": 87.31, "e/2": 82.41,
+  "d/2": 73.42, "c/2": 65.41, "b/1": 61.74, "a/1": 55.00, "g/1": 49.00, "f/1": 43.65, "e/1": 41.20
+};
+
+const midiPitches = {
+  "g/3": 55, "f/3": 53, "e/3": 52, "d/3": 50, "c/3": 48, "b/2": 47, "a/2": 45, "g/2": 43, 
+  "f/2": 41, "e/2": 40, "d/2": 38, "c/2": 36, "b/1": 35, "a/1": 33, "g/1": 31, "f/1": 29, "e/1": 28
+};
+
+const tabMap = {
+  "g/3": {s:1, f:12}, "f/3": {s:1, f:10}, "e/3": {s:1, f:9}, "d/3": {s:1, f:7}, "c/3": {s:1, f:5},
+  "b/2": {s:1, f:4}, "a/2": {s:1, f:2}, "g/2": {s:1, f:0}, "f/2": {s:2, f:3}, "e/2": {s:2, f:2},
+  "d/2": {s:2, f:0}, "c/2": {s:3, f:3}, "b/1": {s:3, f:2}, "a/1": {s:3, f:0}, "g/1": {s:4, f:3},
+  "f/1": {s:4, f:1}, "e/1": {s:4, f:0}
+};
+
 const canvas = document.getElementById("canvas"), ctx = canvas.getContext("2d");
-
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight - 100;
-
+canvas.width = window.innerWidth; canvas.height = 480;
 let notes = [], ghost = null, isTouching = false;
-let isPlaying = false, currentBeat = 0, nextNoteTime = 0, bpm = 120;
-
-const staffTop = 80, tabTop = 300, beatWidth = 50, startMargin = 60;
+const step = 14, staffTop = 80, tabTop = 280, beatWidth = 55, startMargin = 85;
 const noteMap = ["g/3","f/3","e/3","d/3","c/3","b/2","a/2","g/2","f/2","e/2","d/2","c/2","b/1","a/1","g/1","f/1","e/1"];
-const frequencies = {"g/3":196.0,"f/3":174.61,"e/3":164.81,"d/3":146.83,"c/3":130.81,"b/2":123.47,"a/2":110.0,"g/2":98.0,"f/2":87.31,"e/2":82.41,"d/2":73.42,"c/2":65.41,"b/1":61.74,"a/1":55.0,"g/1":49.0,"f/1":43.65,"e/1":41.2};
 
-function updateBPM(val) { bpm = val; document.getElementById('bpmVal').innerText = val; }
-
-function playNote(freq, time) {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(freq, time);
-    gain.gain.setValueAtTime(0.4, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
-    osc.connect(gain); gain.connect(audioCtx.destination);
-    osc.start(time); osc.stop(time + 0.3);
+// --- MIDI EXPORT ---
+function exportMIDI() {
+  if (notes.length === 0) return;
+  const header = [0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x00, 0x80];
+  let events = [];
+  const sorted = [...notes].sort((a, b) => a.beat - b.beat);
+  let lastTick = 0;
+  sorted.forEach(n => {
+    let tick = n.beat * 128;
+    events.push(tick - lastTick, 0x90, midiPitches[n.note], 0x64);
+    events.push(128, 0x80, midiPitches[n.note], 0x00);
+    lastTick = tick + 128;
+  });
+  events.push(0x00, 0xff, 0x2f, 0x00);
+  const fullFile = new Uint8Array([...header, 0x4d, 0x54, 0x72, 0x6b, 0, 0, 0, events.length, ...events]);
+  const blob = new Blob([fullFile], {type: "audio/midi"});
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "bassline.mid";
+  link.click();
 }
 
-function draw() {
-    ctx.clearRect(0,0,canvas.width, canvas.height);
-    
-    // Grid & Balken
-    for(let b=0; b<32; b++) {
-        let x = startMargin + (b * beatWidth);
-        ctx.strokeStyle = (b % 4 === 0) ? "#666" : "#222";
-        ctx.beginPath(); ctx.moveTo(x, 20); ctx.lineTo(x, 450); ctx.stroke();
-    }
-    ctx.strokeStyle = "#444";
-    [5,7,9,11,13].forEach(i => { let y = staffTop + (i*7); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); });
-
-    // Noten tekenen
-    notes.forEach(n => {
-        ctx.fillStyle = "white";
-        ctx.beginPath(); ctx.ellipse(n.x, n.y, 7, 5, -0.7, 0, 7); ctx.fill();
-        // Stokje
-        ctx.strokeStyle = "white"; ctx.lineWidth = 1.5;
-        let dir = n.index <= 9 ? 1 : -1;
-        ctx.beginPath(); ctx.moveTo(n.x+(6*-dir), n.y); ctx.lineTo(n.x+(6*-dir), n.y+(30*dir)); ctx.stroke();
-    });
-
-    if(ghost) {
-        ctx.fillStyle = "rgba(0, 212, 255, 0.4)";
-        ctx.beginPath(); ctx.ellipse(ghost.x, ghost.y, 7, 5, -0.7, 0, 7); ctx.fill();
-    }
-    
-    if(isPlaying) {
-        ctx.strokeStyle = "#00d4ff"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(startMargin + (currentBeat * beatWidth), 20); ctx.lineTo(startMargin + (currentBeat * beatWidth), 450); ctx.stroke();
-    }
-    requestAnimationFrame(draw);
+function playBassTone(noteName) {
+  const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+  osc.type = 'triangle'; osc.frequency.setValueAtTime(frequencies[noteName], audioCtx.currentTime);
+  gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.5);
 }
 
-// De simpele interactie: Tikken = noot, nog een keer tikken op dezelfde plek = weg
-canvas.addEventListener("pointerdown", (e) => {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const rect = canvas.getBoundingClientRect();
-    const b = Math.round((e.clientX - rect.left - startMargin) / beatWidth);
-    const p = Math.max(0, Math.min(noteMap.length - 1, Math.round((e.clientY - rect.top - staffTop) / 7)));
-    
-    const idx = notes.findIndex(n => n.beat === b && n.index === p);
-    if(idx !== -1) {
-        notes.splice(idx, 1);
-    } else {
-        const newNote = { x: startMargin + (b * beatWidth), y: staffTop + p * 7, beat: b, index: p, note: noteMap[p] };
-        notes.push(newNote);
-        playNote(frequencies[newNote.note], audioCtx.currentTime);
+function drawStaff() {
+  if (omrImage) {
+    ctx.save(); ctx.globalAlpha = 0.4;
+    ctx.drawImage(omrImage, 0, 20, canvas.width, canvas.width * (omrImage.height / omrImage.width));
+    ctx.restore();
+  }
+  for (let b = 0; b < 24; b++) {
+    let x = startMargin + (b * beatWidth);
+    ctx.strokeStyle = (b % 4 === 0) ? "#666" : "#222";
+    ctx.beginPath(); ctx.moveTo(x, 40); ctx.lineTo(x, 420); ctx.stroke();
+  }
+  ctx.strokeStyle = "#888";
+  [5, 7, 9, 11, 13].forEach(i => {
+    let y = staffTop + (i * 7);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  });
+  ctx.strokeStyle = "#444";
+  [0, 1, 2, 3].forEach(i => {
+    let y = tabTop + (i * 20);
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  });
+  if (isPlaying) {
+    ctx.strokeStyle = "#ffaa00"; ctx.lineWidth = 2;
+    const x = startMargin + (currentBeat * beatWidth);
+    ctx.beginPath(); ctx.moveTo(x, 40); ctx.lineTo(x, 420); ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+}
+
+function drawNotes() {
+  notes.forEach(n => {
+    // Balk
+    ctx.beginPath(); ctx.ellipse(n.x, n.y, 7, 5, -0.7, 0, 7);
+    ctx.fillStyle = "white"; ctx.fill();
+    ctx.beginPath(); ctx.strokeStyle = "white"; ctx.lineWidth = 1.5;
+    if (n.index <= 9) { ctx.moveTo(n.x - 6, n.y); ctx.lineTo(n.x - 6, n.y + 30); }
+    else { ctx.moveTo(n.x + 6, n.y); ctx.lineTo(n.x + 6, n.y - 35); }
+    ctx.stroke();
+    // TAB
+    const t = tabMap[n.note];
+    if (t) {
+      const ty = tabTop + ((t.s - 1) * 20);
+      ctx.fillStyle = "#151515"; ctx.fillRect(n.x - 8, ty - 8, 16, 16);
+      ctx.fillStyle = "#00d4ff"; ctx.font = "bold 13px Arial"; ctx.textAlign = "center";
+      ctx.fillText(t.f, n.x, ty + 5);
     }
-});
+  });
+}
 
 function togglePlayback() {
-    if(isPlaying) { isPlaying = false; document.getElementById("playBtn").innerText="PLAY"; }
-    else {
-        isPlaying = true; currentBeat = 0; nextNoteTime = audioCtx.currentTime;
-        document.getElementById("playBtn").innerText="STOP";
-        scheduler();
-    }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (isPlaying) { clearInterval(playbackInterval); isPlaying = false; document.getElementById("playBtn").innerText = "PLAY"; }
+  else {
+    isPlaying = true; currentBeat = 0; document.getElementById("playBtn").innerText = "STOP";
+    const playStep = () => {
+      notes.filter(n => n.beat === currentBeat).forEach(h => playBassTone(h.note));
+    };
+    playStep();
+    playbackInterval = setInterval(() => {
+      currentBeat++; if (currentBeat > 20) currentBeat = 0;
+      playStep();
+    }, 500);
+  }
 }
 
-function scheduler() {
-    while (nextNoteTime < audioCtx.currentTime + 0.1 && isPlaying) {
-        notes.filter(n => n.beat === currentBeat).forEach(n => playNote(frequencies[n.note], nextNoteTime));
-        nextNoteTime += (60 / bpm);
-        currentBeat++; if(currentBeat > 31) currentBeat = 0;
-    }
-    if(isPlaying) setTimeout(scheduler, 25);
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawStaff();
+  if (ghost) {
+    ctx.save(); ctx.globalAlpha = 0.5;
+    ctx.beginPath(); ctx.ellipse(ghost.x, ghost.y, 7, 5, -0.7, 0, 7);
+    ctx.fillStyle = "#00d4ff"; ctx.fill(); ctx.restore();
+  }
+  drawNotes();
+  requestAnimationFrame(loop);
+}
+
+document.getElementById('omr-upload').addEventListener('change', function(e) {
+  const reader = new FileReader();
+  reader.onload = (ev) => { omrImage = new Image(); omrImage.src = ev.target.result; };
+  reader.readAsDataURL(e.target.files[0]);
+});
+
+canvas.addEventListener("pointerdown", (e) => {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  isTouching = true; canvas.setPointerCapture(e.pointerId);
+  updateGhost(e);
+  playBassTone(ghost.note);
+});
+
+canvas.addEventListener("pointermove", (e) => {
+  if (!isTouching) return;
+  const oldNote = ghost ? ghost.note : null;
+  updateGhost(e);
+  if (oldNote !== ghost.note) playBassTone(ghost.note);
+});
+
+canvas.addEventListener("pointerup", () => {
+  if (isTouching && ghost) {
+    const idx = notes.findIndex(n => n.beat === ghost.beat && n.note === ghost.note);
+    if (idx !== -1) notes.splice(idx, 1);
+    else notes.push(ghost);
+    ghost = null;
+  }
+  isTouching = false;
+});
+
+function updateGhost(e) {
+  const rect = canvas.getBoundingClientRect();
+  const bIdx = Math.round((e.clientX - rect.left - startMargin) / beatWidth);
+  const pIdx = Math.round((e.clientY - rect.top - 75 - staffTop) / 7);
+  const p = Math.max(0, Math.min(noteMap.length - 1, pIdx));
+  ghost = { x: startMargin + (bIdx * beatWidth), y: staffTop + p * 7, note: noteMap[p], index: p, beat: bIdx };
 }
 
 function clearNotes() { notes = []; }
 
-draw();
+// Extra iPhone Zoom Blockers
+document.addEventListener('touchstart', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+loop();
 </script>
 </body>
 </html>
