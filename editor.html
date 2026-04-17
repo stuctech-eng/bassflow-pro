@@ -124,23 +124,35 @@ function playBassTone(noteName) {
 
 function drawNotes() {
   notes.forEach(n => {
+    // 1. Teken de noot op de balk
     drawLedgerLines(n.x, n.index);
-    ctx.beginPath(); ctx.ellipse(n.x, n.y, 7, 5, -0.7, 0, 7);
-    ctx.fillStyle = "white"; ctx.fill();
-    ctx.beginPath(); ctx.lineWidth = 2; ctx.strokeStyle = "white";
-    if (n.index <= 9) { ctx.moveTo(n.x - 6, n.y); ctx.lineTo(n.x - 6, n.y + 35); }
-    else { ctx.moveTo(n.x + 6, n.y); ctx.lineTo(n.x + 6, n.y - 35); }
+    ctx.beginPath(); 
+    ctx.ellipse(n.x, n.y, 7, 5, -0.7, 0, 7);
+    ctx.fillStyle = "white"; 
+    ctx.fill();
+    
+    // 2. Teken de stok (iets korter bij akkoorden)
+    ctx.beginPath(); ctx.lineWidth = 1.5; ctx.strokeStyle = "white";
+    if (n.index <= 9) { ctx.moveTo(n.x - 6, n.y); ctx.lineTo(n.x - 6, n.y + 30); }
+    else { ctx.moveTo(n.x + 6, n.y); ctx.lineTo(n.x + 6, n.y - 30); }
     ctx.stroke();
 
+    // 3. Teken de TAB (nu multi-note proof)
     const tab = tabMap[n.note];
     if (tab) {
         const tabY = tabTop + ((tab.s - 1) * 20);
-        ctx.fillStyle = "#151515"; ctx.fillRect(n.x - 9, tabY - 9, 18, 18);
-        ctx.fillStyle = "#00d4ff"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
-        ctx.fillText(tab.f, n.x, tabY + 6);
+        // Wit vierkantje om de lijn achter het cijfer te wissen
+        ctx.fillStyle = "#151515"; 
+        ctx.fillRect(n.x - 8, tabY - 8, 16, 16);
+        // Het fretnummer
+        ctx.fillStyle = "#00d4ff";
+        ctx.font = "bold 13px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(tab.f, n.x, tabY + 5);
     }
   });
 }
+
 
 function drawLedgerLines(x, index) {
   ctx.strokeStyle = "white"; ctx.lineWidth = 1.5;
@@ -201,10 +213,29 @@ canvas.addEventListener("pointermove", (e) => {
   ghost = nG;
 });
 
+// Zoek deze sectie in je 'pointerup' event listener en vervang hem:
+
 canvas.addEventListener("pointerup", () => {
-  if (isTouching && ghost) { notes = notes.filter(n => n.beat !== ghost.beat); notes.push(ghost); ghost = null; }
+  if (isTouching && ghost) {
+    // Check of PRECIES deze noot al bestaat op deze beat
+    const existingNoteIndex = notes.findIndex(
+      n => n.beat === ghost.beat && n.note === ghost.note
+    );
+
+    if (existingNoteIndex !== -1) {
+      // Als de noot al bestaat: verwijder hem (toggle/gum functie)
+      notes.splice(existingNoteIndex, 1);
+    } else {
+      // Als hij nog niet bestaat: voeg hem toe aan de stapel
+      notes.push(ghost);
+    }
+    
+    notes.sort((a, b) => a.beat - b.beat);
+    ghost = null;
+  }
   isTouching = false;
 });
+
 
 function clearNotes() { notes = []; }
 loop();
