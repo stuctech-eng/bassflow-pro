@@ -28,25 +28,23 @@
     #bpm-slider { width: 65px; accent-color: #FF2D7A; }
     #maat-select { background: #1a1a1a; color: #aaa; border: 1px solid #333; padding: 6px; border-radius: 6px; font-size: 11px; font-weight: 700; }
 
-    #canvas-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
-    #canvas-scroll::-webkit-scrollbar { height: 3px; }
-    #canvas-scroll::-webkit-scrollbar-thumb { background: #333; }
-    canvas { background: #151515; display: block; touch-action: pan-x; }
+    #canvas-wrap { position: relative; width: 100vw; overflow: hidden; }
+    canvas { background: #151515; display: block; }
 
-    /* POPUP */
-    #popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 200; align-items: center; justify-content: center; flex-direction: column; padding: 20px; }
+    #popup { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 200; align-items: center; justify-content: center; flex-direction: column; padding: 20px; }
     #popup.open { display: flex; }
     #popup-title { font-size: 13px; font-weight: 800; color: #FF2D7A; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
     #popup-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 300px; }
-    .popup-item { background: #1a1a1a; border: 1.5px solid #333; border-radius: 10px; padding: 14px 8px; text-align: center; cursor: pointer; transition: background 0.1s; }
+    .popup-item { background: #1a1a1a; border: 1.5px solid #333; border-radius: 10px; padding: 14px 8px; text-align: center; cursor: pointer; }
     .popup-item.active-item { border-color: #FF2D7A; background: #2a0a14; }
-    .popup-item .pi-symbool { font-size: 22px; color: white; line-height: 1.2; }
+    .popup-item .pi-symbool { font-size: 24px; color: white; line-height: 1.3; }
     .popup-item .pi-naam { font-size: 10px; color: #888; margin-top: 4px; font-weight: 700; }
     .popup-item .pi-tellen { font-size: 9px; color: #555; margin-top: 2px; }
     #popup-sluit { margin-top: 16px; background: #FF2D7A; color: #fff; border: none; border-radius: 20px; padding: 10px 28px; font-size: 13px; font-weight: 800; cursor: pointer; }
 
     #statusbar { position: fixed; bottom: 0; left: 0; right: 0; background: #111; border-top: 1px solid #1a1a1a; padding: 5px 12px; font-size: 10px; color: #444; display: flex; justify-content: space-between; height: 28px; align-items: center; }
     #status-msg { color: #FF2D7A; font-weight: 700; font-size: 11px; }
+    #hint { color: #333; font-size: 9px; }
   </style>
 </head>
 <body>
@@ -55,7 +53,7 @@
   <button class="tb play" id="playBtn" onclick="togglePlayback()">▶ PLAY</button>
   <div class="sep"></div>
   <button class="tb active" id="tool-noot" onclick="openPopup('noot')">♩ Noot</button>
-  <button class="tb" id="tool-rust" onclick="openPopup('rust')">-- Rust</button>
+  <button class="tb" id="tool-rust" onclick="openPopup('rust')">𝄽 Rust</button>
   <button class="tb danger" id="tool-wis" onclick="setTool('wis')">✕ Wis</button>
   <div class="sep"></div>
   <select id="maat-select" onchange="setMaat(this.value)">
@@ -72,33 +70,30 @@
   <label class="tb ai" for="ai-upload">🤖 AI</label>
   <input type="file" id="ai-upload" accept="image/*" onchange="handleAIUpload(this)">
   <button class="tb midi" onclick="exportMIDI()">⬇ MIDI</button>
-  <button class="tb danger" onclick="clearNotes()">CLEAR</button>
+  <button class="tb danger" id="clearBtn">CLEAR</button>
 </div>
 
-<div id="canvas-scroll">
+<div id="canvas-wrap">
   <canvas id="canvas"></canvas>
 </div>
 
 <div id="statusbar">
   <span id="status-msg"></span>
-  <span id="status-info">BassFlow Editor v1</span>
+  <span id="hint">1 vinger = noot · 2 vingers = scrollen</span>
 </div>
 
-<!-- POPUP -->
 <div id="popup">
   <div id="popup-title">Kies nootwaarde</div>
   <div id="popup-grid"></div>
-  <button id="popup-sluit" onclick="sluitPopup()">Klaar</button>
+  <button id="popup-sluit" onclick="sluitPopup()">Annuleer</button>
 </div>
 
 <script>
 const PINK = "#FF2D7A";
 const CYAN = "#00d4ff";
 
-// Audio
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function unlockAudio() { if (audioCtx.state === "suspended") audioCtx.resume(); }
-document.addEventListener("touchstart", unlockAudio, { once: true });
 
 // State
 let isPlaying = false, currentTick = 0, playbackTimer = null;
@@ -109,24 +104,23 @@ let maatTeller = 4;
 let notes = [];
 let ghost = null;
 let isTouching = false;
-let touchStartY = 0;
+let scrollX = 0;
 let aiBezig = false;
 
-// Constanten
+// Layout
 const TICKS_PER_KWART = 4;
-const TICK_WIDTH = 16;
+const TICK_WIDTH = 18;
 const MATEN = 8;
-const START_MARGIN = 50;
-const STAFF_TOP = 60;
+const START_MARGIN = 55;
+const MAAT_PADDING = 6;
+const STAFF_TOP = 65;
 const STAFF_STEP = 8;
-const STAFF_LINES = [0, 2, 4, 6, 8]; // lijn indices
-const TAB_TOP = 240;
+const TAB_TOP = 250;
 const TAB_GAP = 20;
 const TAB_STRINGS = 4;
-const CANVAS_H = 400;
-const GHOST_OFFSET = 90; // pixels boven vinger
+const CANVAS_H = 420;
+const GHOST_OFFSET = 85;
 
-// Noot data
 const noteMap = [
   "g/3","f/3","e/3","d/3","c/3",
   "b/2","a/2","g/2","f/2","e/2",
@@ -158,59 +152,64 @@ const tabMap = {
 };
 
 const nootWaarden = [
-  { duur: 1,  symbool: "𝅝",  naam: "Hele noot",     tellen: "4 tellen" },
-  { duur: 2,  symbool: "𝅗𝅥", naam: "Halve noot",    tellen: "2 tellen" },
-  { duur: 4,  symbool: "♩",  naam: "Kwartnoot",     tellen: "1 tel" },
-  { duur: 8,  symbool: "♪",  naam: "Achtste noot",  tellen: "½ tel" },
-  { duur: 16, symbool: "𝅘𝅥𝅯", naam: "Zestiende",    tellen: "¼ tel" }
+  { duur:1,  symbool:"𝅝",  naam:"Hele noot",    tellen:"4 tellen" },
+  { duur:2,  symbool:"𝅗𝅥", naam:"Halve noot",   tellen:"2 tellen" },
+  { duur:4,  symbool:"♩",  naam:"Kwartnoot",    tellen:"1 tel" },
+  { duur:8,  symbool:"♪",  naam:"Achtste noot", tellen:"½ tel" },
+  { duur:16, symbool:"𝅘𝅥𝅯", naam:"Zestiende",   tellen:"¼ tel" }
 ];
 
 const rustWaarden = [
-  { duur: 1,  symbool: "𝄻", naam: "Hele rust",    tellen: "4 tellen" },
-  { duur: 2,  symbool: "𝄼", naam: "Halve rust",   tellen: "2 tellen" },
-  { duur: 4,  symbool: "𝄽", naam: "Kwart rust",   tellen: "1 tel" },
-  { duur: 8,  symbool: "𝄾", naam: "Achtste rust", tellen: "½ tel" },
-  { duur: 16, symbool: "𝄿", naam: "Zestiende r.", tellen: "¼ tel" }
+  { duur:1,  symbool:"▬",  naam:"Hele rust",    tellen:"4 tellen" },
+  { duur:2,  symbool:"▬",  naam:"Halve rust",   tellen:"2 tellen" },
+  { duur:4,  symbool:"𝄽",  naam:"Kwart rust",   tellen:"1 tel" },
+  { duur:8,  symbool:"𝄾",  naam:"Achtste rust", tellen:"½ tel" },
+  { duur:16, symbool:"𝄿",  naam:"Zestiende r.", tellen:"¼ tel" }
 ];
 
-// Canvas setup
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-function herbereken() {
-  canvas.width = Math.max(window.innerWidth, START_MARGIN + totaleTicks() * TICK_WIDTH + 60);
-  canvas.height = CANVAS_H;
-}
-
 function totaleTicks() { return MATEN * maatTeller * TICKS_PER_KWART; }
 function duurInTicks(d) {
-  if (d === 1)  return TICKS_PER_KWART * 4;
-  if (d === 2)  return TICKS_PER_KWART * 2;
-  if (d === 4)  return TICKS_PER_KWART;
-  if (d === 8)  return Math.max(1, TICKS_PER_KWART / 2);
-  if (d === 16) return Math.max(1, TICKS_PER_KWART / 4);
+  if (d===1)  return TICKS_PER_KWART*4;
+  if (d===2)  return TICKS_PER_KWART*2;
+  if (d===4)  return TICKS_PER_KWART;
+  if (d===8)  return 2;
+  if (d===16) return 1;
   return TICKS_PER_KWART;
 }
-function tickNaarX(t) { return START_MARGIN + t * TICK_WIDTH; }
-function xNaarTick(x) {
-  const scroll = document.getElementById("canvas-scroll").scrollLeft;
-  const raw = (x + scroll - START_MARGIN) / TICK_WIDTH;
-  const snap = duurInTicks(activeDuur);
-  return Math.max(0, Math.round(raw / snap) * snap);
+
+function maatBreedte() { return maatTeller * TICKS_PER_KWART * TICK_WIDTH + MAAT_PADDING * 2; }
+function tickNaarX(tick) {
+  const maat = Math.floor(tick / (maatTeller * TICKS_PER_KWART));
+  const binnenMaat = tick % (maatTeller * TICKS_PER_KWART);
+  return START_MARGIN + maat * maatBreedte() + MAAT_PADDING + binnenMaat * TICK_WIDTH - scrollX;
 }
-function yNaarNoteIndex(y) {
-  const idx = Math.round((y - STAFF_TOP) / STAFF_STEP);
-  return Math.max(0, Math.min(noteMap.length - 1, idx));
+function xNaarTick(clientX) {
+  const x = clientX + scrollX - START_MARGIN;
+  const maat = Math.floor(x / maatBreedte());
+  const binnenMaat = x - maat * maatBreedte() - MAAT_PADDING;
+  const tick = maat * maatTeller * TICKS_PER_KWART + Math.round(binnenMaat / TICK_WIDTH / duurInTicks(activeDuur)) * duurInTicks(activeDuur);
+  return Math.max(0, Math.min(totaleTicks() - 1, tick));
+}
+function yNaarNoteIndex(clientY) {
+  const idx = Math.round((clientY - GHOST_OFFSET - STAFF_TOP) / STAFF_STEP);
+  return Math.max(0, Math.min(noteMap.length-1, idx));
 }
 
+function herbereken() {
+  canvas.width = window.innerWidth;
+  canvas.height = CANVAS_H;
+}
 herbereken();
+window.addEventListener("resize", herbereken);
 
-// Toolbar
 function setTool(t) {
   activeTool = t;
   ["noot","rust","wis"].forEach(function(x) {
-    const el = document.getElementById("tool-" + x);
-    if (el) el.classList.toggle("active", x === t);
+    const el = document.getElementById("tool-"+x);
+    if (el) el.classList.toggle("active", x===t);
   });
 }
 
@@ -219,15 +218,21 @@ function setBpm(v) {
   document.getElementById("bpm-label").textContent = bpm + " BPM";
 }
 
-function setMaat(v) {
-  maatTeller = parseInt(v);
-  herbereken();
+function setMaat(v) { maatTeller = parseInt(v); }
+
+function setStatus(msg) {
+  document.getElementById("status-msg").textContent = msg;
+  if (msg) setTimeout(function() { document.getElementById("status-msg").textContent = ""; }, 3000);
 }
 
-function setStatus(msg, duur) {
-  document.getElementById("status-msg").textContent = msg;
-  if (msg) setTimeout(function() { document.getElementById("status-msg").textContent = ""; }, duur || 3000);
-}
+// Clear knop apart
+document.getElementById("clearBtn").addEventListener("touchend", function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  if (notes.length === 0) return;
+  notes = [];
+  setStatus("Alle noten gewist");
+});
 
 // Popup
 function openPopup(type) {
@@ -241,11 +246,12 @@ function openPopup(type) {
     const div = document.createElement("div");
     div.className = "popup-item" + (item.duur === activeDuur ? " active-item" : "");
     div.innerHTML = '<div class="pi-symbool">' + item.symbool + '</div><div class="pi-naam">' + item.naam + '</div><div class="pi-tellen">' + item.tellen + '</div>';
-    div.onclick = function() {
+    div.addEventListener("touchend", function(e) {
+      e.preventDefault();
       activeDuur = item.duur;
       sluitPopup();
       setStatus(item.naam + " geselecteerd");
-    };
+    });
     grid.appendChild(div);
   });
   document.getElementById("popup").classList.add("open");
@@ -260,62 +266,90 @@ function drawStaff() {
   const W = canvas.width;
   ctx.lineWidth = 1;
 
-  // Maat lijnen + nummers
+  // Achtergrond maten afwisselend
+  for (let m = 0; m < MATEN; m++) {
+    const x1 = tickNaarX(m * maatTeller * TICKS_PER_KWART);
+    const x2 = tickNaarX((m+1) * maatTeller * TICKS_PER_KWART);
+    ctx.fillStyle = m % 2 === 0 ? "#161616" : "#131313";
+    ctx.fillRect(x1, STAFF_TOP - 20, x2 - x1, TAB_TOP + TAB_STRINGS * TAB_GAP + 15 - (STAFF_TOP - 20));
+  }
+
+  // Maatstrepen
   for (let m = 0; m <= MATEN; m++) {
     const x = tickNaarX(m * maatTeller * TICKS_PER_KWART);
-    ctx.strokeStyle = "#555";
-    ctx.lineWidth = m % 4 === 0 ? 2 : 1;
+    ctx.strokeStyle = "#666";
+    ctx.lineWidth = m === 0 || m === MATEN ? 2 : 1.5;
     ctx.beginPath();
-    ctx.moveTo(x, STAFF_TOP - 15);
+    ctx.moveTo(x, STAFF_TOP - 18);
     ctx.lineTo(x, TAB_TOP + TAB_STRINGS * TAB_GAP + 8);
     ctx.stroke();
+
+    // Maatnummer
     if (m < MATEN) {
-      ctx.fillStyle = "#666"; ctx.font = "bold 10px Arial"; ctx.textAlign = "left";
-      ctx.fillText("" + (m + 1), x + 4, STAFF_TOP - 4);
+      ctx.fillStyle = "#555"; ctx.font = "bold 10px Arial"; ctx.textAlign = "left";
+      ctx.fillText("" + (m+1), x + 5, STAFF_TOP - 6);
     }
   }
 
-  // Beat sublijnen
-  for (let b = 0; b < totaleTicks(); b++) {
-    if (b % TICKS_PER_KWART === 0 && b % (maatTeller * TICKS_PER_KWART) !== 0) {
-      const x = tickNaarX(b);
-      ctx.strokeStyle = "#252525"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(x, STAFF_TOP); ctx.lineTo(x, STAFF_TOP + 8 * STAFF_STEP); ctx.stroke();
+  // Beat lijnen binnen maat
+  for (let m = 0; m < MATEN; m++) {
+    for (let b = 1; b < maatTeller; b++) {
+      const tick = m * maatTeller * TICKS_PER_KWART + b * TICKS_PER_KWART;
+      const x = tickNaarX(tick);
+      ctx.strokeStyle = "#2a2a2a"; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, STAFF_TOP);
+      ctx.lineTo(x, STAFF_TOP + 8 * STAFF_STEP + 5);
+      ctx.stroke();
     }
   }
 
   // 5 notenbalkslijnen
   ctx.strokeStyle = "#777"; ctx.lineWidth = 1;
-  STAFF_LINES.forEach(function(i) {
-    const y = STAFF_TOP + (i + 2) * STAFF_STEP;
+  [2,4,6,8,10].forEach(function(i) {
+    const y = STAFF_TOP + i * STAFF_STEP;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   });
 
   // Bassleutel
-  ctx.fillStyle = PINK; ctx.font = "42px serif"; ctx.textAlign = "left";
-  ctx.fillText("?", 4, STAFF_TOP + 8 * STAFF_STEP - 2);
+  ctx.fillStyle = PINK; ctx.font = "44px serif"; ctx.textAlign = "left";
+  ctx.fillText("?", 4, STAFF_TOP + 9 * STAFF_STEP);
 
-  // Nootlabels links (G B D F A / A C E G)
-  ctx.font = "8px Arial"; ctx.fillStyle = "#444";
+  // Nootlabels links
+  ctx.font = "8px Arial"; ctx.fillStyle = "#3a3a3a";
   noteMap.forEach(function(n, i) {
     ctx.textAlign = "right";
     ctx.fillText(noteNamen[n], START_MARGIN - 3, STAFF_TOP + i * STAFF_STEP + 3);
   });
 
   // TAB lijnen
-  ctx.strokeStyle = "#444"; ctx.lineWidth = 1;
+  ctx.strokeStyle = "#3a3a3a"; ctx.lineWidth = 1;
   for (let s = 0; s < TAB_STRINGS; s++) {
     const y = TAB_TOP + s * TAB_GAP;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
-  ctx.fillStyle = "#555"; ctx.font = "bold 10px Arial"; ctx.textAlign = "left";
+  ctx.fillStyle = "#444"; ctx.font = "bold 9px Arial"; ctx.textAlign = "left";
   ["T","A","B",""].forEach(function(l, i) { ctx.fillText(l, 5, TAB_TOP + i * TAB_GAP + 4); });
+
+  // Scroll indicator
+  const totBreedte = MATEN * maatBreedte();
+  if (totBreedte > W) {
+    const barW = (W / totBreedte) * W;
+    const barX = (scrollX / totBreedte) * W;
+    ctx.fillStyle = "#222";
+    ctx.fillRect(0, CANVAS_H - 6, W, 6);
+    ctx.fillStyle = "#444";
+    ctx.fillRect(barX, CANVAS_H - 6, barW, 6);
+  }
 
   // Playhead
   if (isPlaying) {
     const x = tickNaarX(currentTick);
     ctx.strokeStyle = PINK; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(x, STAFF_TOP - 15); ctx.lineTo(x, TAB_TOP + TAB_STRINGS * TAB_GAP + 8); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, STAFF_TOP - 18);
+    ctx.lineTo(x, TAB_TOP + TAB_STRINGS * TAB_GAP + 8);
+    ctx.stroke();
   }
 }
 
@@ -327,45 +361,41 @@ function drawNootVorm(cx, cy, ni, duur, kleur, alpha) {
   const sx = isHoog ? cx + 6 : cx - 6;
   const sy = isHoog ? cy - 30 : cy + 30;
 
-  // Hoofd
   ctx.beginPath(); ctx.ellipse(cx, cy, 7, 5, -0.3, 0, Math.PI * 2);
   if (gevuld) { ctx.fillStyle = kleur; ctx.fill(); }
   else { ctx.strokeStyle = kleur; ctx.lineWidth = 1.5; ctx.stroke(); }
 
-  // Stiel
   if (duur !== 1) {
     ctx.strokeStyle = kleur; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(sx, cy); ctx.lineTo(sx, sy); ctx.stroke();
   }
 
-  // Vlaggen
   if (duur === 8 || duur === 16) {
-    ctx.strokeStyle = kleur; ctx.lineWidth = 1.5;
     ctx.beginPath();
-    if (isHoog) { ctx.moveTo(sx, sy); ctx.bezierCurveTo(sx+14, sy+6, sx+10, sy+14, sx, sy+18); }
-    else { ctx.moveTo(sx, sy); ctx.bezierCurveTo(sx-14, sy-6, sx-10, sy-14, sx, sy-18); }
-    ctx.stroke();
+    if (isHoog) { ctx.moveTo(sx, sy); ctx.bezierCurveTo(sx+14, sy+8, sx+10, sy+16, sx, sy+20); }
+    else { ctx.moveTo(sx, sy); ctx.bezierCurveTo(sx-14, sy-8, sx-10, sy-16, sx, sy-20); }
+    ctx.strokeStyle = kleur; ctx.lineWidth = 1.5; ctx.stroke();
   }
   if (duur === 16) {
     ctx.beginPath();
-    if (isHoog) { ctx.moveTo(sx, sy+10); ctx.bezierCurveTo(sx+14, sy+16, sx+10, sy+24, sx, sy+28); }
-    else { ctx.moveTo(sx, sy-10); ctx.bezierCurveTo(sx-14, sy-16, sx-10, sy-24, sx, sy-28); }
-    ctx.stroke();
+    if (isHoog) { ctx.moveTo(sx, sy+10); ctx.bezierCurveTo(sx+14, sy+18, sx+10, sy+26, sx, sy+30); }
+    else { ctx.moveTo(sx, sy-10); ctx.bezierCurveTo(sx-14, sy-18, sx-10, sy-26, sx, sy-30); }
+    ctx.strokeStyle = kleur; ctx.lineWidth = 1.5; ctx.stroke();
   }
 
   // Hulplijnen
-  const s1 = STAFF_TOP + 2 * STAFF_STEP;
-  const s5 = STAFF_TOP + 6 * STAFF_STEP;
-  if (cy < s1 - 2) {
-    for (let ly = s1 - STAFF_STEP; ly >= cy - STAFF_STEP; ly -= STAFF_STEP) {
+  const s1y = STAFF_TOP + 2 * STAFF_STEP;
+  const s5y = STAFF_TOP + 10 * STAFF_STEP;
+  if (cy < s1y - 2) {
+    for (let ly = s1y - STAFF_STEP; ly >= cy - STAFF_STEP; ly -= STAFF_STEP) {
       ctx.strokeStyle = kleur; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(cx - 10, ly); ctx.lineTo(cx + 10, ly); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-10, ly); ctx.lineTo(cx+10, ly); ctx.stroke();
     }
   }
-  if (cy > s5 + 2) {
-    for (let ly = s5 + STAFF_STEP; ly <= cy + STAFF_STEP; ly += STAFF_STEP) {
+  if (cy > s5y + 2) {
+    for (let ly = s5y + STAFF_STEP; ly <= cy + STAFF_STEP; ly += STAFF_STEP) {
       ctx.strokeStyle = kleur; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(cx - 10, ly); ctx.lineTo(cx + 10, ly); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-10, ly); ctx.lineTo(cx+10, ly); ctx.stroke();
     }
   }
   ctx.restore();
@@ -375,19 +405,42 @@ function drawRust(cx, duur, kleur, alpha) {
   ctx.save();
   if (alpha !== undefined) ctx.globalAlpha = alpha;
   ctx.fillStyle = kleur; ctx.strokeStyle = kleur;
-  const y = STAFF_TOP + 4 * STAFF_STEP;
-  ctx.font = "bold 22px serif"; ctx.textAlign = "center";
-  if (duur === 1) { ctx.fillRect(cx - 10, y - 8, 20, 8); }
-  else if (duur === 2) { ctx.fillRect(cx - 10, y, 20, 7); }
-  else if (duur === 4)  { ctx.fillText("𝄽", cx, y + 12); }
-  else if (duur === 8)  { ctx.fillText("𝄾", cx, y + 12); }
-  else if (duur === 16) { ctx.fillText("𝄿", cx, y + 12); }
+  const midY = STAFF_TOP + 5 * STAFF_STEP;
+  if (duur === 1) {
+    // Hele rust -- blok hangend aan lijn
+    ctx.fillRect(cx - 10, midY - STAFF_STEP, 20, 8);
+  } else if (duur === 2) {
+    // Halve rust -- blok liggend op lijn
+    ctx.fillRect(cx - 10, midY, 20, 7);
+  } else if (duur === 4) {
+    // Kwart rust -- zigzag
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, midY - 12);
+    ctx.lineTo(cx + 6, midY - 6);
+    ctx.lineTo(cx - 2, midY);
+    ctx.lineTo(cx + 4, midY + 6);
+    ctx.lineTo(cx, midY + 12);
+    ctx.stroke();
+  } else if (duur === 8) {
+    // Achtste rust
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx + 2, midY - 6, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx + 2, midY - 6); ctx.lineTo(cx - 4, midY + 8); ctx.stroke();
+  } else if (duur === 16) {
+    // Zestiende rust
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx + 2, midY - 10, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + 2, midY - 2, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx + 2, midY - 10); ctx.lineTo(cx - 4, midY + 8); ctx.stroke();
+  }
   ctx.restore();
 }
 
 function drawNotes() {
   notes.forEach(function(n) {
     const x = tickNaarX(n.tick);
+    if (x < -20 || x > canvas.width + 20) return; // Buiten beeld
     if (n.isRust) {
       drawRust(x, n.duur, "white");
     } else {
@@ -397,9 +450,9 @@ function drawNotes() {
       const t = tabMap[n.note];
       if (t) {
         const ty = TAB_TOP + (t.s - 1) * TAB_GAP;
-        ctx.fillStyle = "#151515"; ctx.fillRect(x - 9, ty - 8, 18, 16);
+        ctx.fillStyle = "#151515"; ctx.fillRect(x-9, ty-8, 18, 16);
         ctx.fillStyle = CYAN; ctx.font = "bold 12px Arial"; ctx.textAlign = "center";
-        ctx.fillText(t.f, x, ty + 5);
+        ctx.fillText(t.f, x, ty+5);
       }
     }
   });
@@ -413,11 +466,12 @@ function drawGhost() {
   } else {
     const ni = noteMap.indexOf(ghost.note);
     const y = STAFF_TOP + ni * STAFF_STEP;
-    drawNootVorm(x, y, ni, activeDuur, PINK, 0.7);
-    // Indicator lijn van vinger naar noot
-    ctx.save(); ctx.globalAlpha = 0.3; ctx.strokeStyle = PINK; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + GHOST_OFFSET); ctx.stroke();
-    ctx.restore();
+    drawNootVorm(x, y, ni, activeDuur, PINK, 0.75);
+    // Stippellijn van noot naar vinger
+    ctx.save(); ctx.globalAlpha = 0.25; ctx.strokeStyle = PINK;
+    ctx.lineWidth = 1; ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.moveTo(x, y + 8); ctx.lineTo(x, y + GHOST_OFFSET); ctx.stroke();
+    ctx.setLineDash([]); ctx.restore();
   }
 }
 
@@ -429,21 +483,37 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-// Touch events
+// Touch handling
 canvas.addEventListener("contextmenu", function(e) { e.preventDefault(); });
+
+let touchStartX = 0, touchStartScrollX = 0, isScrolling = false;
 
 canvas.addEventListener("touchstart", function(e) {
   e.preventDefault();
   unlockAudio();
+
+  if (e.touches.length === 2) {
+    // 2 vingers = scrollen
+    isScrolling = true;
+    isTouching = false;
+    ghost = null;
+    touchStartX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    touchStartScrollX = scrollX;
+    return;
+  }
+
+  isScrolling = false;
   isTouching = true;
   const t = e.touches[0];
-  touchStartY = t.clientY;
   const tick = xNaarTick(t.clientX);
-  const ni = yNaarNoteIndex(t.clientY - GHOST_OFFSET);
+  const ni = yNaarNoteIndex(t.clientY);
 
   if (activeTool === "wis") {
-    const snap = duurInTicks(activeDuur);
-    notes = notes.filter(function(n) { return Math.abs(n.tick - tick) >= snap; });
+    const snap = duurInTicks(activeDuur) * TICK_WIDTH;
+    notes = notes.filter(function(n) {
+      const nx = tickNaarX(n.tick);
+      return Math.abs(nx - t.clientX) > 20;
+    });
     return;
   }
   if (activeTool === "rust") {
@@ -456,10 +526,19 @@ canvas.addEventListener("touchstart", function(e) {
 
 canvas.addEventListener("touchmove", function(e) {
   e.preventDefault();
+
+  if (e.touches.length === 2 && isScrolling) {
+    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const delta = touchStartX - midX;
+    const maxScroll = Math.max(0, MATEN * maatBreedte() - canvas.width + START_MARGIN);
+    scrollX = Math.max(0, Math.min(maxScroll, touchStartScrollX + delta));
+    return;
+  }
+
   if (!isTouching || activeTool === "wis") return;
   const t = e.touches[0];
   const tick = xNaarTick(t.clientX);
-  const ni = yNaarNoteIndex(t.clientY - GHOST_OFFSET);
+  const ni = yNaarNoteIndex(t.clientY);
   const newNote = noteMap[ni];
 
   if (activeTool === "rust") {
@@ -472,6 +551,8 @@ canvas.addEventListener("touchmove", function(e) {
 
 canvas.addEventListener("touchend", function(e) {
   e.preventDefault();
+  isScrolling = false;
+
   if (isTouching && ghost && activeTool !== "wis") {
     const bestaand = notes.findIndex(function(n) {
       return n.tick === ghost.tick && (n.isRust ? ghost.isRust : n.note === ghost.note);
@@ -487,14 +568,16 @@ canvas.addEventListener("touchend", function(e) {
 function playBassTone(noteName) {
   if (!frequencies[noteName]) return;
   unlockAudio();
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = "triangle";
-  osc.frequency.setValueAtTime(frequencies[noteName], audioCtx.currentTime);
-  gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-  osc.connect(gain); gain.connect(audioCtx.destination);
-  osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(frequencies[noteName], audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+  } catch(e) {}
 }
 
 // Playback
@@ -518,11 +601,7 @@ function togglePlayback() {
   }
 }
 
-function clearNotes() {
-  if (confirm("Alle noten wissen?")) notes = [];
-}
-
-// AI Upload
+// AI
 async function handleAIUpload(input) {
   const bestand = input.files[0];
   if (!bestand || aiBezig) return;
@@ -554,20 +633,18 @@ async function handleAIUpload(input) {
   reader.readAsDataURL(bestand);
 }
 
-// MIDI Export
+// MIDI
 function exportMIDI() {
   if (notes.length === 0) { setStatus("Zet eerst noten neer!"); return; }
   const header = [0x4d,0x54,0x68,0x64,0x00,0x00,0x00,0x06,0x00,0x00,0x00,0x01,0x00,0x60];
-  const sorted = notes.filter(function(n) { return !n.isRust; }).sort(function(a,b) { return a.tick - b.tick; });
+  const sorted = notes.filter(function(n) { return !n.isRust; }).sort(function(a,b) { return a.tick-b.tick; });
   let events = [], lastTick = 0;
   sorted.forEach(function(n) {
     const tick = n.tick * 8;
     const delta = tick - lastTick;
     const pitch = midiPitches[n.note];
     const durTicks = duurInTicks(n.duur) * 8;
-    const d1 = delta > 127 ? [0x81 | ((delta >> 7) & 0x7f), delta & 0x7f] : [delta];
-    const d2 = durTicks > 127 ? [0x81 | ((durTicks >> 7) & 0x7f), durTicks & 0x7f] : [durTicks];
-    events = events.concat(d1, [0x90, pitch, 0x64], d2, [0x80, pitch, 0x00]);
+    events = events.concat([delta & 0x7f, 0x90, pitch, 0x64, durTicks & 0x7f, 0x80, pitch, 0x00]);
     lastTick = tick + durTicks;
   });
   events = events.concat([0x00, 0xff, 0x2f, 0x00]);
