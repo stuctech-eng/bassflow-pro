@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
-  <title>BassFlow - Stable</title>
+  <title>BassFlow Pro</title>
   <style>
     :root { --accent: #00d4ff; --bg: #0d0d0d; }
     body { 
@@ -12,10 +12,20 @@
     }
     canvas { display: block; background: #111; touch-action: none; }
     
+    #noteMenu {
+      position: absolute; display: none; background: rgba(30, 30, 30, 0.95);
+      border: 2px solid var(--accent); border-radius: 15px; padding: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7); z-index: 1000; width: 220px;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+    .menu-row { display: flex; justify-content: space-between; gap: 5px; margin-bottom: 10px; }
+    .m-btn { flex: 1; background: #444; border: 1px solid #555; color: white; padding: 12px 5px; border-radius: 8px; font-size: 18px; }
+    .del-btn { background: #700; color: white; width: 100%; border: none; padding: 12px; border-radius: 8px; font-weight: bold; }
+
     .bottom-bar { 
       position: fixed; bottom: 0; width: 100%; height: 100px;
       display: flex; flex-direction: column; justify-content: center; align-items: center;
-      background: #1a1a1a; border-top: 1px solid #333; gap: 10px; padding-bottom: 10px;
+      background: #1a1a1a; border-top: 1px solid #333; gap: 10px; padding-bottom: env(safe-area-inset-bottom);
     }
     .controls-row { display: flex; gap: 20px; }
     .btn { background: #222; border: 1px solid var(--accent); color: var(--accent); padding: 10px 25px; border-radius: 12px; font-weight: bold; }
@@ -26,6 +36,18 @@
 <body>
 
 <canvas id="canvas"></canvas>
+
+<div id="noteMenu">
+  <div class="menu-row">
+    <button class="m-btn" onclick="updateDur(512)">𝅝</button>
+    <button class="m-btn" onclick="updateDur(256)">𝅗𝅥</button>
+    <button class="m-btn" onclick="updateDur(128)">𝅘𝅥</button>
+    <button class="m-btn" onclick="updateDur(64)">𝅘𝅥𝅮</button>
+  </div>
+  <button class="m-btn" style="width:100%; margin-bottom:8px;" onclick="toggleRest()">RUST (𝄽)</button>
+  <button class="del-btn" onclick="deleteNote()">VERWIJDEREN</button>
+  <button class="m-btn" style="width:100%; margin-top:10px; background:var(--accent); color:black; font-weight:bold" onclick="closeMenu()">KLAAR</button>
+</div>
 
 <div class="bottom-bar">
   <div class="bpm-container">
@@ -42,35 +64,36 @@
 <script>
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const canvas = document.getElementById("canvas"), ctx = canvas.getContext("2d");
+const menu = document.getElementById("noteMenu");
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight - 100;
 
-let notes = [], ghost = null, isTouching = false;
+let notes = [], selectedNote = null;
 let isPlaying = false, currentBeat = 0, nextNoteTime = 0, bpm = 120;
+let pressTimer;
 
-const staffTop = 80, tabTop = 300, beatWidth = 50, startMargin = 60;
+const staffTop = 80, beatWidth = 50, startMargin = 60;
 const noteMap = ["g/3","f/3","e/3","d/3","c/3","b/2","a/2","g/2","f/2","e/2","d/2","c/2","b/1","a/1","g/1","f/1","e/1"];
 const frequencies = {"g/3":196.0,"f/3":174.61,"e/3":164.81,"d/3":146.83,"c/3":130.81,"b/2":123.47,"a/2":110.0,"g/2":98.0,"f/2":87.31,"e/2":82.41,"d/2":73.42,"c/2":65.41,"b/1":61.74,"a/1":55.0,"g/1":49.0,"f/1":43.65,"e/1":41.2};
 
 function updateBPM(val) { bpm = val; document.getElementById('bpmVal').innerText = val; }
 
-function playNote(freq, time) {
+function playNote(freq, time, dur = 128) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(freq, time);
     gain.gain.setValueAtTime(0.4, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+    const release = (dur/128) * (60/bpm) * 0.7;
+    gain.gain.exponentialRampToValueAtTime(0.001, time + release);
     osc.connect(gain); gain.connect(audioCtx.destination);
-    osc.start(time); osc.stop(time + 0.3);
+    osc.start(time); osc.stop(time + release);
 }
 
 function draw() {
     ctx.clearRect(0,0,canvas.width, canvas.height);
-    
-    // Grid & Balken
     for(let b=0; b<32; b++) {
         let x = startMargin + (b * beatWidth);
         ctx.strokeStyle = (b % 4 === 0) ? "#666" : "#222";
@@ -79,21 +102,18 @@ function draw() {
     ctx.strokeStyle = "#444";
     [5,7,9,11,13].forEach(i => { let y = staffTop + (i*7); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); });
 
-    // Noten tekenen
     notes.forEach(n => {
+        ctx.globalAlpha = n.isRest ? 0.2 : 1.0;
         ctx.fillStyle = "white";
-        ctx.beginPath(); ctx.ellipse(n.x, n.y, 7, 5, -0.7, 0, 7); ctx.fill();
-        // Stokje
+        ctx.beginPath(); ctx.ellipse(n.x, n.y, 7, 5, -0.7, 0, 7); 
+        if(n.dur >= 256) { ctx.strokeStyle="white"; ctx.stroke(); } else { ctx.fill(); }
+        
         ctx.strokeStyle = "white"; ctx.lineWidth = 1.5;
         let dir = n.index <= 9 ? 1 : -1;
         ctx.beginPath(); ctx.moveTo(n.x+(6*-dir), n.y); ctx.lineTo(n.x+(6*-dir), n.y+(30*dir)); ctx.stroke();
+        ctx.globalAlpha = 1.0;
     });
 
-    if(ghost) {
-        ctx.fillStyle = "rgba(0, 212, 255, 0.4)";
-        ctx.beginPath(); ctx.ellipse(ghost.x, ghost.y, 7, 5, -0.7, 0, 7); ctx.fill();
-    }
-    
     if(isPlaying) {
         ctx.strokeStyle = "#00d4ff"; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(startMargin + (currentBeat * beatWidth), 20); ctx.lineTo(startMargin + (currentBeat * beatWidth), 450); ctx.stroke();
@@ -101,22 +121,40 @@ function draw() {
     requestAnimationFrame(draw);
 }
 
-// De simpele interactie: Tikken = noot, nog een keer tikken op dezelfde plek = weg
 canvas.addEventListener("pointerdown", (e) => {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const rect = canvas.getBoundingClientRect();
     const b = Math.round((e.clientX - rect.left - startMargin) / beatWidth);
     const p = Math.max(0, Math.min(noteMap.length - 1, Math.round((e.clientY - rect.top - staffTop) / 7)));
     
-    const idx = notes.findIndex(n => n.beat === b && n.index === p);
-    if(idx !== -1) {
-        notes.splice(idx, 1);
+    const hit = notes.find(n => n.beat === b && n.index === p);
+    
+    if(hit) {
+        // Start timer voor lang drukken (pop-up)
+        pressTimer = setTimeout(() => {
+            selectedNote = hit;
+            showMenu(e.clientX, e.clientY);
+        }, 500);
     } else {
-        const newNote = { x: startMargin + (b * beatWidth), y: staffTop + p * 7, beat: b, index: p, note: noteMap[p] };
+        // Geen noot? Maak nieuwe
+        const newNote = { x: startMargin + (b * beatWidth), y: staffTop + p * 7, beat: b, index: p, note: noteMap[p], dur: 128, isRest: false };
         notes.push(newNote);
         playNote(frequencies[newNote.note], audioCtx.currentTime);
     }
 });
+
+canvas.addEventListener("pointerup", () => clearTimeout(pressTimer));
+
+function showMenu(x, y) {
+    menu.style.display = "block";
+    menu.style.left = Math.min(x, window.innerWidth - 230) + "px";
+    menu.style.top = Math.min(y, window.innerHeight - 320) + "px";
+}
+
+function closeMenu() { menu.style.display = "none"; selectedNote = null; }
+function updateDur(d) { if(selectedNote) selectedNote.dur = d; }
+function toggleRest() { if(selectedNote) selectedNote.isRest = !selectedNote.isRest; }
+function deleteNote() { notes = notes.filter(n => n !== selectedNote); closeMenu(); }
 
 function togglePlayback() {
     if(isPlaying) { isPlaying = false; document.getElementById("playBtn").innerText="PLAY"; }
@@ -129,7 +167,7 @@ function togglePlayback() {
 
 function scheduler() {
     while (nextNoteTime < audioCtx.currentTime + 0.1 && isPlaying) {
-        notes.filter(n => n.beat === currentBeat).forEach(n => playNote(frequencies[n.note], nextNoteTime));
+        notes.filter(n => n.beat === currentBeat && !n.isRest).forEach(n => playNote(frequencies[n.note], nextNoteTime, n.dur));
         nextNoteTime += (60 / bpm);
         currentBeat++; if(currentBeat > 31) currentBeat = 0;
     }
@@ -137,7 +175,6 @@ function scheduler() {
 }
 
 function clearNotes() { notes = []; }
-
 draw();
 </script>
 </body>
