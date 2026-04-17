@@ -148,10 +148,29 @@ function duurInTicks(d) {
 }
 
 function tickNaarX(tick) {
-  const maat = Math.floor(tick / (maatTeller * TICKS_PER_KWART));
-  const binnen = tick % (maatTeller * TICKS_PER_KWART);
-  return START_MARGIN + maat * MB() + MAAT_PADDING + binnen * TW() - scrollX;
+  const maatTicks = maatTeller * TICKS_PER_KWART;
+  const maat = Math.floor(tick / maatTicks);
+  const binnen = tick % maatTicks;
+  const maatX = START_MARGIN + maat * MB();
+  // Verdeel beats gelijkmatig binnen maat (zonder padding aan einde)
+  const beatX = (binnen / maatTicks) * (MB() - MAAT_PADDING);
+  return maatX + MAAT_PADDING + beatX - scrollX;
 }
+
+function xNaarTick(clientX) {
+  const rect = canvas.getBoundingClientRect();
+  const x = (clientX - rect.left) * (canvas.width / rect.width) + scrollX - START_MARGIN;
+  const maat = Math.max(0, Math.floor(x / MB()));
+  const binnen = Math.max(0, x - maat * MB() - MAAT_PADDING);
+  const maatTicks = maatTeller * TICKS_PER_KWART;
+  const rawTick = maat * maatTicks + (binnen / (MB() - MAAT_PADDING)) * maatTicks;
+  const snap = duurInTicks(activeDuur);
+  const snapped = Math.round(rawTick / snap) * snap;
+  const maatStart = maat * maatTicks;
+  const maatEind = (maat + 1) * maatTicks - snap;
+  return Math.max(0, Math.min(TOT() - snap, Math.max(maatStart, Math.min(maatEind, snapped))));
+}
+
 
 function xNaarTick(clientX) {
   const rect = canvas.getBoundingClientRect();
@@ -336,14 +355,17 @@ function drawStaff() {
 
   // Achtergrond foto -- volledige breedte, juiste verhouding
   if (bgImage) {
-    ctx.save();
-    ctx.globalAlpha = bgOpacity;
-    const ratio = bgImage.naturalWidth / bgImage.naturalHeight;
-    const tW = W;
-    const tH = tW / ratio;
-    ctx.drawImage(bgImage, 0, STAFF_TOP, tW, tH);
-    ctx.restore();
-  }
+  ctx.save();
+  ctx.globalAlpha = bgOpacity;
+  const ratio = bgImage.naturalWidth / bgImage.naturalHeight;
+  const tW = canvas.width;
+  const tH = tW / ratio;
+  // Centreer verticaal op de notenbalk
+  const startY = STAFF_TOP + (CH() - STAFF_TOP - tH) / 2;
+  ctx.drawImage(bgImage, 0, Math.max(0, startY), tW, tH);
+  ctx.restore();
+}
+
 
   // Afwisselende maat achtergronden
   for (let m = 0; m < MATEN; m++) {
