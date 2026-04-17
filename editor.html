@@ -3,38 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
-  <title>BassFlow Pro - Final</title>
+  <title>BassFlow Pro - Fixed</title>
   <style>
     :root { --accent: #00d4ff; --bg: #0d0d0d; }
     body { 
       margin: 0; background: var(--bg); color: white; font-family: sans-serif; 
-      overflow: hidden; touch-action: none; -webkit-user-select: none;
+      overflow: hidden; position: fixed; width: 100%; height: 100%;
+      touch-action: none; -webkit-user-select: none;
     }
-    canvas { display: block; background: #111; touch-action: none; }
+    canvas { display: block; background: #111; touch-action: none; width: 100%; height: calc(100% - 110px); }
     
-    /* Pop-up Menu */
     #noteMenu {
-      position: absolute; display: none; background: rgba(25, 25, 25, 0.98);
-      border: 2px solid var(--accent); border-radius: 15px; padding: 12px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.8); z-index: 1000; width: 220px;
-      backdrop-filter: blur(10px);
+      position: absolute; display: none; background: rgba(35, 35, 35, 0.95);
+      border: 2px solid var(--accent); border-radius: 15px; padding: 15px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.8); z-index: 9999; width: 240px;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     }
-    .menu-row { display: flex; justify-content: space-between; gap: 5px; margin-bottom: 10px; }
-    .m-btn { flex: 1; background: #333; border: 1px solid #444; color: white; padding: 12px 5px; border-radius: 8px; font-size: 18px; }
-    .m-btn.active { background: var(--accent); color: black; }
-    .del-btn { background: #600; color: white; width: 100%; border: none; padding: 12px; border-radius: 8px; font-weight: bold; }
+    .menu-row { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    .m-btn { flex: 1; background: #444; border: 1px solid #555; color: white; padding: 15px 5px; border-radius: 10px; font-size: 20px; }
+    .m-btn:active { background: var(--accent); color: black; }
+    .del-btn { background: #800; color: white; width: 100%; border: none; padding: 15px; border-radius: 10px; font-weight: bold; margin-top: 5px; }
 
-    /* Bottom Bar & Slider */
     .bottom-bar { 
       position: fixed; bottom: 0; width: 100%; height: 110px;
       display: flex; flex-direction: column; justify-content: center; align-items: center;
-      background: #1a1a1a; border-top: 1px solid #333; gap: 10px; padding-bottom: env(safe-area-inset-bottom);
+      background: #1a1a1a; border-top: 1px solid #333; gap: 8px; padding-bottom: env(safe-area-inset-bottom);
     }
-    .controls-row { display: flex; gap: 15px; width: 100%; justify-content: center; }
-    .btn { background: #222; border: 1px solid var(--accent); color: var(--accent); padding: 10px 22px; border-radius: 12px; font-weight: bold; font-size: 14px; }
-    
-    .bpm-container { display: flex; align-items: center; gap: 12px; color: var(--accent); font-weight: bold; font-size: 14px; }
-    input[type=range] { width: 160px; accent-color: var(--accent); }
+    .controls-row { display: flex; gap: 15px; }
+    .btn { background: #222; border: 1px solid var(--accent); color: var(--accent); padding: 10px 25px; border-radius: 12px; font-weight: bold; }
+    .bpm-container { display: flex; align-items: center; gap: 10px; color: var(--accent); font-size: 14px; }
   </style>
 </head>
 <body>
@@ -42,28 +39,27 @@
 <canvas id="canvas"></canvas>
 
 <div id="noteMenu">
-  <div style="font-size: 11px; color: #888; text-align: center; margin-bottom: 8px;">EDIT NOOT</div>
+  <div style="font-size: 12px; color: #aaa; text-align: center; margin-bottom: 10px;">OPTIES</div>
   <div class="menu-row">
     <button class="m-btn" onclick="setNoteDur(512)">𝅝</button>
     <button class="m-btn" onclick="setNoteDur(256)">𝅗𝅥</button>
     <button class="m-btn" onclick="setNoteDur(128)">𝅘𝅥</button>
     <button class="m-btn" onclick="setNoteDur(64)">𝅘𝅥𝅮</button>
   </div>
-  <button class="m-btn" style="width:100%; margin-bottom:8px; font-size: 14px;" onclick="toggleRest()">WISSEL RUST (𝄽)</button>
-  <button class="del-btn" onclick="deleteNote()">VERWIJDEREN</button>
-  <button class="m-btn" style="width:100%; margin-top:10px; background:var(--accent); color:black; font-weight:bold" onclick="closeMenu()">BEWAAR</button>
+  <button class="m-btn" style="width:100%; margin-bottom:10px; font-size: 14px;" onclick="toggleRest()">RUST AAN/UIT</button>
+  <button class="del-btn" onclick="deleteNote()">VERWIJDER NOOT</button>
+  <button class="m-btn" style="width:100%; margin-top:10px; background:var(--accent); color:black; font-weight:bold" onclick="closeMenu()">KLAAR</button>
 </div>
 
 <div class="bottom-bar">
   <div class="bpm-container">
-    <span>TEMPO:</span>
-    <input type="range" id="bpmSlider" min="50" max="200" value="120" oninput="updateBPM(this.value)">
-    <span id="bpmVal">120 BPM</span>
+    <span>BPM:</span>
+    <input type="range" id="bpmSlider" min="60" max="180" value="120" oninput="updateBPM(this.value)">
+    <span id="bpmVal">120</span>
   </div>
   <div class="controls-row">
     <button class="btn" onclick="clearNotes()">CLEAR</button>
     <button id="playBtn" class="btn" onclick="togglePlayback()">PLAY</button>
-    <button class="btn" style="border-color:#ffaa00; color:#ffaa00" onclick="exportMIDI()">EXPORT MIDI</button>
   </div>
 </div>
 
@@ -72,99 +68,113 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const canvas = document.getElementById("canvas"), ctx = canvas.getContext("2d");
 const menu = document.getElementById("noteMenu");
 
-canvas.width = window.innerWidth; canvas.height = window.innerHeight - 110;
+// Canvas setup
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - 110;
+}
+window.addEventListener('resize', resize);
+resize();
 
 let notes = [], ghost = null, isTouching = false, selectedNote = null;
 let isPlaying = false, currentBeat = 0, nextNoteTime = 0, bpm = 120;
-const staffTop = 100, tabTop = 320, beatWidth = 55, startMargin = 70;
+let longPressTimer;
+
+const staffTop = 80, tabTop = 280, beatWidth = 55, startMargin = 60;
 const noteMap = ["g/3","f/3","e/3","d/3","c/3","b/2","a/2","g/2","f/2","e/2","d/2","c/2","b/1","a/1","g/1","f/1","e/1"];
 const frequencies = {"g/3":196.0,"f/3":174.61,"e/3":164.81,"d/3":146.83,"c/3":130.81,"b/2":123.47,"a/2":110.0,"g/2":98.0,"f/2":87.31,"e/2":82.41,"d/2":73.42,"c/2":65.41,"b/1":61.74,"a/1":55.0,"g/1":49.0,"f/1":43.65,"e/1":41.2};
-const midiPitches = {"g/3":55,"f/3":53,"e/3":52,"d/3":50,"c/3":48,"b/2":47,"a/2":45,"g/2":43,"f/2":41,"e/2":40,"d/2":38,"c/2":36,"b/1":35,"a/1":33,"g/1":31,"f/1":29,"e/1":28};
-const tabMap = {"g/3":{s:1,f:12},"f/3":{s:1,f:10},"e/3":{s:1,f:9},"d/3":{s:1,f:7},"c/3":{s:1,f:5},"b/2":{s:1,f:4},"a/2":{s:1,f:2},"g/2":{s:1,f:0},"f/2":{s:2,f:3},"e/2":{s:2,f:2},"d/2":{s:2,f:0},"c/2":{s:3,f:3},"b/1":{s:3,f:2},"a/1":{s:3,f:0},"g/1":{s:4,f:3},"f/1":{s:4,f:1},"e/1":{s:4,f:0}};
 
-function updateBPM(val) { bpm = val; document.getElementById('bpmVal').innerText = val + " BPM"; }
+function updateBPM(val) { bpm = val; document.getElementById('bpmVal').innerText = val; }
 
-function playNote(freq, time, dur) {
-    const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
-    osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, time);
+function playNote(freq, time) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, time);
     g.gain.setValueAtTime(0.4, time);
-    const holdTime = (dur / 128) * (60 / bpm) * 0.8; 
-    g.gain.exponentialRampToValueAtTime(0.001, time + holdTime);
+    g.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
     osc.connect(g); g.connect(audioCtx.destination);
-    osc.start(time); osc.stop(time + holdTime);
+    osc.start(time); osc.stop(time + 0.3);
 }
 
 function draw() {
     ctx.clearRect(0,0,canvas.width, canvas.height);
-    // Grid
     for(let b=0; b<32; b++) {
         let x = startMargin + (b * beatWidth);
         ctx.strokeStyle = (b % 4 === 0) ? "#555" : "#222";
-        ctx.beginPath(); ctx.moveTo(x, 40); ctx.lineTo(x, 480); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, 20); ctx.lineTo(x, 450); ctx.stroke();
     }
-    // Balk
     ctx.strokeStyle = "#444";
     [5,7,9,11,13].forEach(i => { let y = staffTop + (i*7); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); });
     
     notes.forEach(n => {
         ctx.globalAlpha = n.isRest ? 0.2 : 1.0;
         ctx.fillStyle = "white"; ctx.beginPath(); ctx.ellipse(n.x, n.y, 7, 5, -0.7, 0, 7); 
-        if(n.dur >= 256) { ctx.strokeStyle="white"; ctx.lineWidth=2; ctx.stroke(); } else { ctx.fill(); }
-        if(n.dur < 512) {
-            ctx.strokeStyle="white"; ctx.lineWidth=1.5; let dir = n.index <= 9 ? 1 : -1;
-            ctx.beginPath(); ctx.moveTo(n.x+(6*-dir), n.y); ctx.lineTo(n.x+(6*-dir), n.y+(30*dir)); ctx.stroke();
-            if(n.dur <= 64) { // Achtste vlag
-              ctx.beginPath(); ctx.moveTo(n.x+(6*-dir), n.y+(30*dir)); ctx.lineTo(n.x+10, n.y+(15*dir)); ctx.stroke();
-            }
-        }
+        if(n.dur >= 256) { ctx.strokeStyle="white"; ctx.stroke(); } else { ctx.fill(); }
         ctx.globalAlpha = 1.0;
-        const t = tabMap[n.note];
-        if(t && !n.isRest) {
-            const ty = tabTop + (t.s-1)*20; ctx.fillStyle = "#111"; ctx.fillRect(n.x-8, ty-8, 16, 16);
-            ctx.fillStyle = (n.beat % 4 === 0) ? "#00d4ff" : "#ffaa00";
-            ctx.font = "bold 13px Arial"; ctx.textAlign="center"; ctx.fillText(t.f, n.x, ty+5);
-        }
     });
 
-    if(ghost) { ctx.fillStyle = "rgba(0, 212, 255, 0.4)"; ctx.beginPath(); ctx.ellipse(ghost.x, ghost.y, 7, 5, -0.7, 0, 7); ctx.fill(); }
+    if(ghost) {
+        ctx.fillStyle = "rgba(0, 212, 255, 0.4)";
+        ctx.beginPath(); ctx.ellipse(ghost.x, ghost.y, 7, 5, -0.7, 0, 7); ctx.fill();
+    }
     
     if(isPlaying) {
-        ctx.strokeStyle = "#00d4ff"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(startMargin + (currentBeat * beatWidth), 40); ctx.lineTo(startMargin + (currentBeat * beatWidth), 480); ctx.stroke();
+        ctx.strokeStyle = varColor(currentBeat); ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(startMargin + (currentBeat * beatWidth), 20); ctx.lineTo(startMargin + (currentBeat * beatWidth), 450); ctx.stroke();
     }
     requestAnimationFrame(draw);
 }
 
-function scheduler() {
-    while (nextNoteTime < audioCtx.currentTime + 0.1) {
-        if(isPlaying) {
-            notes.filter(n => n.beat === currentBeat && !n.isRest).forEach(n => playNote(frequencies[n.note], nextNoteTime, n.dur));
-            nextNoteTime += (60 / bpm);
-            currentBeat++; if(currentBeat > 31) currentBeat = 0;
-        } else { break; }
-    }
-    if(isPlaying) setTimeout(scheduler, 25);
-}
+function varColor(b) { return (b % 4 === 0) ? "#00d4ff" : "#ffaa00"; }
 
 canvas.addEventListener("pointerdown", (e) => {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const rect = canvas.getBoundingClientRect();
     const b = Math.round((e.clientX - rect.left - startMargin) / beatWidth);
-    const p = Math.max(0, Math.min(noteMap.length - 1, Math.round((e.clientY - rect.top - 80 - staffTop) / 7)));
+    const p = Math.max(0, Math.min(noteMap.length - 1, Math.round((e.clientY - rect.top - staffTop) / 7)));
+    
     const hit = notes.find(n => n.beat === b && n.index === p);
     
-    let isLong = false;
-    let timer = setTimeout(() => { if(hit) { isLong = true; selectedNote = hit; showMenu(e.clientX, e.clientY); } }, 450);
-
-    if(!hit) {
+    if(hit) {
+        selectedNote = hit;
+        longPressTimer = setTimeout(() => {
+            showMenu(e.clientX, e.clientY);
+        }, 400);
+    } else {
         isTouching = true;
         ghost = { x: startMargin + (b * beatWidth), y: staffTop + p * 7, beat: b, index: p, note: noteMap[p], dur: 128, isRest: false };
-        playNote(frequencies[ghost.note], audioCtx.currentTime, 128);
+        playNote(frequencies[ghost.note], audioCtx.currentTime);
     }
-    canvas.addEventListener("pointerup", () => { clearTimeout(timer); if(isTouching && ghost && !isLong) notes.push({...ghost}); ghost = null; isTouching = false; }, {once: true});
 });
 
-function showMenu(x, y) { menu.style.display = "block"; menu.style.left = Math.min(x, window.innerWidth-230)+"px"; menu.style.top = Math.min(y, window.innerHeight-280)+"px"; }
+canvas.addEventListener("pointermove", (e) => {
+    if(!isTouching) return;
+    const rect = canvas.getBoundingClientRect();
+    const b = Math.round((e.clientX - rect.left - startMargin) / beatWidth);
+    const p = Math.max(0, Math.min(noteMap.length - 1, Math.round((e.clientY - rect.top - staffTop) / 7)));
+    ghost.x = startMargin + (b * beatWidth);
+    ghost.y = staffTop + p * 7;
+    ghost.beat = b;
+    ghost.index = p;
+    ghost.note = noteMap[p];
+});
+
+canvas.addEventListener("pointerup", () => {
+    clearTimeout(longPressTimer);
+    if(isTouching && ghost) {
+        notes.push({...ghost});
+    }
+    ghost = null; isTouching = false;
+});
+
+function showMenu(x, y) {
+    menu.style.display = "block";
+    menu.style.left = Math.min(x, window.innerWidth - 250) + "px";
+    menu.style.top = Math.min(y, window.innerHeight - 300) + "px";
+}
+
 function closeMenu() { menu.style.display = "none"; selectedNote = null; }
 function setNoteDur(d) { if(selectedNote) selectedNote.dur = d; }
 function toggleRest() { if(selectedNote) selectedNote.isRest = !selectedNote.isRest; }
@@ -175,27 +185,22 @@ function togglePlayback() {
     if(isPlaying) { isPlaying = false; document.getElementById("playBtn").innerText="PLAY"; }
     else {
         isPlaying = true; currentBeat = 0; nextNoteTime = audioCtx.currentTime;
-        document.getElementById("playBtn").innerText="STOP"; scheduler();
+        document.getElementById("playBtn").innerText="STOP";
+        scheduler();
     }
 }
 
-function exportMIDI() {
-  if (notes.length === 0) return;
-  const header = [0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1, 0, 0x80];
-  let events = []; let lastT = 0;
-  notes.sort((a,b) => a.beat - b.beat).forEach(n => {
-    if (n.isRest) return;
-    let t = n.beat * 128;
-    events.push(t - lastT, 0x90, midiPitches[n.note], 64, n.dur, 0x80, midiPitches[n.note], 0);
-    lastT = t + n.dur;
-  });
-  events.push(0, 0xff, 0x2f, 0);
-  const trackHeader = [0x4d, 0x54, 0x72, 0x6b, (events.length >> 24) & 0xff, (events.length >> 16) & 0xff, (events.length >> 8) & 0xff, events.length & 0xff];
-  const blob = new Blob([new Uint8Array([...header, ...trackHeader, ...events])], {type: "audio/midi"});
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "bassflow.mid"; a.click();
+function scheduler() {
+    while (nextNoteTime < audioCtx.currentTime + 0.1 && isPlaying) {
+        notes.filter(n => n.beat === currentBeat && !n.isRest).forEach(n => playNote(frequencies[n.note], nextNoteTime));
+        nextNoteTime += (60 / bpm);
+        currentBeat++; if(currentBeat > 31) currentBeat = 0;
+    }
+    if(isPlaying) setTimeout(scheduler, 25);
 }
 
 draw();
 </script>
 </body>
 </html>
+
