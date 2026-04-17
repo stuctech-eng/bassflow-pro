@@ -139,7 +139,8 @@ const NOTE_STEP = 9;
 const STAFF_LINE_INDICES = [2,4,6,8,10];
 const TAB_STRINGS = 4;
 const BASE_TAB_GAP = 22;
-const GHOST_OFFSET = 85;
+const GHOST_OFFSET = 40;
+
 const BASE_MAAT_W = 220;
 
 function MW()  { return BASE_MAAT_W * zoom; }
@@ -173,10 +174,13 @@ function xNaarMaatBeat(clientX) {
 
 function yNaarNoteIndex(clientY) {
   const rect = canvas.getBoundingClientRect();
-  const y = (clientY - rect.top) * (canvas.height / rect.height) - GHOST_OFFSET;
-  const idx = Math.round((y - STAFF_TOP) / SS());
+  const scaleY = canvas.height / rect.height;
+  const canvasY = (clientY - rect.top) * scaleY;
+  const effectieveY = canvasY - GHOST_OFFSET;
+  const idx = Math.round((effectieveY - STAFF_TOP) / SS());
   return Math.max(0, Math.min(noteMap.length - 1, idx));
 }
+
 
 function duurInSubBeats(d) {
   if (d===1)  return 0.25;
@@ -442,6 +446,7 @@ function drawStaff() {
 }
 
 function nootY(ni) { return STAFF_TOP + ni * SS(); }
+
 
 function drawNootVorm(cx, cy, ni, duur, kleur, alpha) {
   ctx.save();
