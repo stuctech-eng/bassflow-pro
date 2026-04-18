@@ -14,7 +14,7 @@
 <body>
   <div id="status">Laden...</div>
   <div id="output"></div>
-  <script src="https://cdn.jsdelivr.net/npm/vexflow@4.0.3/build/cjs/vexflow.js"
+  <script src="https://unpkg.com/vexflow@4.0.3/build/cjs/vexflow.js"
     onload="init()"
     onerror="document.getElementById('status').textContent='FOUT: VexFlow niet geladen'">
   </script>
@@ -30,6 +30,14 @@
       stave.addClef("bass").addTimeSignature("4/4");
       stave.setContext(context).draw();
     }
+
+    // Timeout na 10 seconden
+    setTimeout(function() {
+      const el = document.getElementById("status");
+      if (el.textContent === "Laden...") {
+        el.textContent = "FOUT: VexFlow timeout - geen internet?";
+      }
+    }, 10000);
   </script>
 </body>
 </html>
