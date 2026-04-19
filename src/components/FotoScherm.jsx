@@ -168,50 +168,62 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
   function handleVensterUp() { setDragHandle(null); }
 
   async function bevestigBijsnijden() {
-    const img = imgRef.current;
-    if (!img || !img.complete) return;
-    const venster = vensterRef.current;
-    const vensterRect = venster.getBoundingClientRect();
+  const img = imgRef.current;
+  if (!img || !img.complete) return;
+  const venster = vensterRef.current;
+  const vensterRect = venster.getBoundingClientRect();
 
-    // Bereken werkelijke weergaveafmetingen van de afbeelding (contain)
-    const imgRatio = img.naturalWidth / img.naturalHeight;
-    const vensterRatio = vensterRect.width / vensterRect.height;
-    let weergaveW, weergaveH, offsetX, offsetY;
-    if (imgRatio > vensterRatio) {
-      weergaveW = vensterRect.width;
-      weergaveH = vensterRect.width / imgRatio;
-      offsetX = 0;
-      offsetY = (vensterRect.height - weergaveH) / 2;
-    } else {
-      weergaveH = vensterRect.height;
-      weergaveW = vensterRect.height * imgRatio;
-      offsetX = (vensterRect.width - weergaveW) / 2;
-      offsetY = 0;
-    }
-
-    const sx = ((cropRect.x / 100) * vensterRect.width - offsetX) / weergaveW * img.naturalWidth;
-    const sy = ((cropRect.y / 100) * vensterRect.height - offsetY) / weergaveH * img.naturalHeight;
-    const sw = (cropRect.w / 100) * vensterRect.width / weergaveW * img.naturalWidth;
-    const sh = (cropRect.h / 100) * vensterRect.height / weergaveH * img.naturalHeight;
-
-    const offscreen = document.createElement("canvas");
-    offscreen.width = Math.max(1, sw);
-    offscreen.height = Math.max(1, sh);
-    offscreen.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-
-    offscreen.toBlob(async function(blob) {
-      const id = oefeningId; if (!id) return;
-      const storageRef = ref(storage, "fotos/" + id + "/crop_" + Date.now() + ".jpg");
-      await uploadBytes(storageRef, blob);
-      const nieuweUrl = await getDownloadURL(storageRef);
-      const nieuweFotos = localFotos.map(function(f, i) { return i === activeFotoIndex ? nieuweUrl : f; });
-      setFotoHistory(function(p) { return [...p, nieuweFotos]; });
-      setLocalFotos(nieuweFotos); onFotosUpdate(nieuweFotos);
-      await updateDoc(doc(db, "oefeningen", id), { fotos: nieuweFotos });
-      setBijsnijdActief(false);
-      setFotoFit("cover");
-    }, "image/jpeg", 0.92);
+  // Bereken exacte positie van foto binnen contain
+  const imgRatio = img.naturalWidth / img.naturalHeight;
+  const vensterRatio = vensterRect.width / vensterRect.height;
+  let weergaveW, weergaveH, offsetX, offsetY;
+  if (imgRatio > vensterRatio) {
+    weergaveW = vensterRect.width;
+    weergaveH = vensterRect.width / imgRatio;
+    offsetX = 0;
+    offsetY = (vensterRect.height - weergaveH) / 2;
+  } else {
+    weergaveH = vensterRect.height;
+    weergaveW = vensterRect.height * imgRatio;
+    offsetX = (vensterRect.width - weergaveW) / 2;
+    offsetY = 0;
   }
+
+  // Crop in pixels van het venster
+  const cropPixelX = (cropRect.x / 100) * vensterRect.width;
+  const cropPixelY = (cropRect.y / 100) * vensterRect.height;
+  const cropPixelW = (cropRect.w / 100) * vensterRect.width;
+  const cropPixelH = (cropRect.h / 100) * vensterRect.height;
+
+  // Vertaal naar foto coordinaten
+  const sx = Math.max(0, (cropPixelX - offsetX) / weergaveW * img.naturalWidth);
+  const sy = Math.max(0, (cropPixelY - offsetY) / weergaveH * img.naturalHeight);
+  const sw = Math.min(img.naturalWidth - sx, cropPixelW / weergaveW * img.naturalWidth);
+  const sh = Math.min(img.naturalHeight - sy, cropPixelH / weergaveH * img.naturalHeight);
+
+  if (sw <= 0 || sh <= 0) return;
+
+  const offscreen = document.createElement("canvas");
+  offscreen.width = sw;
+  offscreen.height = sh;
+  offscreen.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
+  offscreen.toBlob(async function(blob) {
+    const id = oefeningId; if (!id) return;
+    const storageRef = ref(storage, "fotos/" + id + "/crop_" + Date.now() + ".jpg");
+    await uploadBytes(storageRef, blob);
+    const nieuweUrl = await getDownloadURL(storageRef);
+    const nieuweFotos = localFotos.map(function(f, i) {
+      return i === activeFotoIndex ? nieuweUrl : f;
+    });
+    setFotoHistory(function(p) { return [...p, nieuweFotos]; });
+    setLocalFotos(nieuweFotos); onFotosUpdate(nieuweFotos);
+    await updateDoc(doc(db, "oefeningen", id), { fotos: nieuweFotos });
+    setBijsnijdActief(false);
+    setFotoFit("contain"); // contain zodat bijgesneden foto goed past
+  }, "image/jpeg", 0.92);
+}
+
 
   async function handleAnalyseer() {
     const id = oefeningId;
