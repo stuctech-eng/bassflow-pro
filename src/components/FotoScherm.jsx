@@ -50,7 +50,7 @@ else if (diff < -60 && idx > 0) setActieveTab(tabs[idx - 1]);
 // ─── Undo foto ──────────────────────────────────────────────────────────────
 function undoFoto() {
 if (fotoHistory.length <= 1) return;
-const h = […fotoHistory];
+const h = fotoHistory.slice();
 h.pop();
 setFotoHistory(h);
 const v = h[h.length - 1];
@@ -62,7 +62,7 @@ if (oefeningId) updateDoc(doc(db, "oefeningen", oefeningId), { fotos: v });
 // ─── Undo info ──────────────────────────────────────────────────────────────
 function undoInfo() {
 if (infoHistory.length <= 1) return;
-const h = […infoHistory];
+const h = infoHistory.slice();
 h.pop();
 setInfoHistory(h);
 const v = h[h.length - 1];
@@ -77,7 +77,7 @@ const bestanden = Array.from(e.target.files);
 if (bestanden.length === 0) return;
 setUploading(true);
 const id = await maakConceptAan();
-const nieuweFotos = […localFotos];
+const nieuweFotos = localFotos.slice();
 for (var i = 0; i < bestanden.length; i++) {
 var pad = "fotos/" + id + "/" + Date.now() + "_" + i + ".jpg";
 var storageRef = ref(storage, pad);
@@ -85,7 +85,7 @@ await uploadBytes(storageRef, bestanden[i]);
 var url = await getDownloadURL(storageRef);
 nieuweFotos.push(url);
 }
-setFotoHistory(function (p) { return […p, nieuweFotos]; });
+setFotoHistory(function (p) { return p.concat([nieuweFotos]); });
 setLocalFotos(nieuweFotos);
 onFotosUpdate(nieuweFotos);
 await updateDoc(doc(db, "oefeningen", id), { fotos: nieuweFotos });
@@ -97,7 +97,7 @@ setUploading(false);
 // ─── Foto verwijderen ───────────────────────────────────────────────────────
 function handleVerwijder(index) {
 const nieuweFotos = localFotos.filter(function (_, i) { return i !== index; });
-setFotoHistory(function (p) { return […p, nieuweFotos]; });
+setFotoHistory(function (p) { return p.concat([nieuweFotos]); });
 setLocalFotos(nieuweFotos);
 onFotosUpdate(nieuweFotos);
 if (oefeningId) updateDoc(doc(db, "oefeningen", oefeningId), { fotos: nieuweFotos });
@@ -108,11 +108,11 @@ setActiveFotoIndex(Math.max(0, nieuweFotos.length - 1));
 
 // ─── Foto volgorde wijzigen ─────────────────────────────────────────────────
 function handleVerschuif(index, richting) {
-const nieuweFotos = […localFotos];
+const nieuweFotos = localFotos.slice();
 const naar = index + richting;
 if (naar < 0 || naar >= nieuweFotos.length) return;
 [nieuweFotos[index], nieuweFotos[naar]] = [nieuweFotos[naar], nieuweFotos[index]];
-setFotoHistory(function (p) { return […p, nieuweFotos]; });
+setFotoHistory(function (p) { return p.concat([nieuweFotos]); });
 setLocalFotos(nieuweFotos);
 onFotosUpdate(nieuweFotos);
 // Volg de verschoven foto mee
@@ -135,7 +135,7 @@ const storageRef = ref(storage, pad);
 await uploadBytes(storageRef, verwerktBlob);
 const nieuweUrl = await getDownloadURL(storageRef);
 const nieuweFotos = localFotos.map(function (f, i) { return i === index ? nieuweUrl : f; });
-setFotoHistory(function (p) { return […p, nieuweFotos]; });
+setFotoHistory(function (p) { return p.concat([nieuweFotos]); });
 setLocalFotos(nieuweFotos);
 onFotosUpdate(nieuweFotos);
 await updateDoc(doc(db, "oefeningen", id), { fotos: nieuweFotos });
@@ -164,7 +164,7 @@ e.preventDefault();
 e.stopPropagation();
 setDragHandle(handle);
 setDragStart(getPos(e));
-setDragStartRect({ …cropRect });
+setDragStartRect(Object.assign({}, cropRect));
 }
 
 // ─── Handgreep slepen (move) ────────────────────────────────────────────────
@@ -175,7 +175,7 @@ const pos = getPos(e);
 const rect = vensterRef.current.getBoundingClientRect();
 const dx = ((pos.x - dragStart.x) / rect.width) * 100;
 const dy = ((pos.y - dragStart.y) / rect.height) * 100;
-const r = { …dragStartRect };
+const r = Object.assign({}, dragStartRect);
 
 ```
 if (dragHandle === "tl") {
@@ -260,7 +260,7 @@ offscreen.toBlob(async function (blob) {
   const nieuweFotos = localFotos.map(function (f, i) {
     return i === activeFotoIndex ? nieuweUrl : f;
   });
-  setFotoHistory(function (p) { return [...p, nieuweFotos]; });
+  setFotoHistory(function (p) { return p.concat([nieuweFotos]); });
   setLocalFotos(nieuweFotos);
   onFotosUpdate(nieuweFotos);
   await updateDoc(doc(db, "oefeningen", id), { fotos: nieuweFotos });
@@ -285,7 +285,7 @@ body: JSON.stringify({ fotoUrls: localFotos, modus: "analyse" })
 });
 const data = await response.json();
 if (data.success) {
-setInfoHistory(function (p) { return […p, data.analyse]; });
+setInfoHistory(function (p) { return p.concat([data.analyse]); });
 setLocalInfo(data.analyse);
 onInfoUpdate(data.analyse);
 if (id) await updateDoc(doc(db, "oefeningen", id), { info: data.analyse });
@@ -446,7 +446,7 @@ return (
         <textarea
           value={localInfo}
           onChange={function (e) {
-            setInfoHistory(function (p) { return [...p, e.target.value]; });
+            setInfoHistory(function (p) { return p.concat([e.target.value]); });
             setLocalInfo(e.target.value);
             onInfoUpdate(e.target.value);
           }}
