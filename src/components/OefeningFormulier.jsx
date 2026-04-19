@@ -25,6 +25,7 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
   const [conceptId, setConceptId] = useState(null);
   const [info, setInfo] = useState(oefening ? (oefening.info || "") : "");
   const [infoFotoBezig, setInfoFotoBezig] = useState(false);
+  const [toonEditor, setToonEditor] = useState(false);
   const invoerRef = useRef();
   const audioRef = useRef();
   const infoFotoRef = useRef();
@@ -245,6 +246,26 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
     onClose();
   }
 
+  // Editor overlay
+  if (toonEditor) {
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 400, background: "#fff", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", background: "#fff", borderBottom: "1px solid #eee" }}>
+          <div style={{ fontWeight: 800, fontSize: 15, color: DARK }}>🎵 Noten Editor</div>
+          <button onClick={function() { setToonEditor(false); }}
+            style={{ background: PINK, color: "#fff", border: "none", borderRadius: 20, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            ← Terug
+          </button>
+        </div>
+        <iframe
+          src="/editor.html"
+          style={{ flex: 1, border: "none", width: "100%", height: "100%" }}
+          title="Noten Editor"
+        />
+      </div>
+    );
+  }
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
       onClick={function(e) { if (e.target === e.currentTarget) handleAnnuleer(); }}>
@@ -274,6 +295,14 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
             <span style={{ fontWeight: 800, color: PINK, fontSize: 13 }}>{bpm} BPM</span>
           </div>
           <input type="range" min={40} max={240} value={bpm} onChange={function(e) { setBpm(Number(e.target.value)); }} style={{ width: "100%", accentColor: PINK }} />
+        </div>
+
+        {/* NOTEN EDITOR KNOP */}
+        <div style={{ marginBottom: 20 }}>
+          <button onClick={function() { setToonEditor(true); }}
+            style={{ width: "100%", background: "#0d0d0d", color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontSize: 14, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            🎵 Open Noten Editor
+          </button>
         </div>
 
         <div style={{ marginBottom: 20 }}>
