@@ -254,8 +254,7 @@ setFotoFit("contain");
 console.error("Bijsnijden fout:", err);
 setBijsnijdActief(false);
 }
-}
-Zo kun je het blok in Working Copy zoeken op naam en vervangen. 🎸​​​​​​​​​​​​​​​​
+
 
 // ─── AI Analyseer ───────────────────────────────────────────────────────────
 async function handleAnalyseer() {
