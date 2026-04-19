@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, updateDoc } from "firebase/firestore";
 import { db, storage } from "../firebase.js";
@@ -6,7 +6,7 @@ import { PINK, PINK_LIGHT, DARK } from "../constants.js";
 import { verwerkFoto } from "../utils.js";
 
 const ANALYSE_URL = "https://analyseertablature-dia7q5dlaq-uc.a.run.app";
-const HANDLE_SIZE = 22;
+const HANDLE_SIZE = 24;
 
 export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, onFotosUpdate, onInfoUpdate, onTerug }) {
   const [actieveTab, setActieveTab] = useState("foto");
@@ -21,16 +21,14 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
   const [activeFotoIndex, setActiveFotoIndex] = useState(0);
   const [fotoHistory, setFotoHistory] = useState([fotos || []]);
   const [infoHistory, setInfoHistory] = useState([info || ""]);
-
-  // Bijsnijden staat
-  const [cropRect, setCropRect] = useState({ x: 10, y: 10, w: 80, h: 80 }); // percentages
+  const [cropRect, setCropRect] = useState({ x: 10, y: 10, w: 80, h: 80 });
   const [dragHandle, setDragHandle] = useState(null);
   const [dragStart, setDragStart] = useState(null);
   const [dragStartRect, setDragStartRect] = useState(null);
 
   const invoerRef = useRef();
   const imgRef = useRef();
-  const overlayRef = useRef();
+  const vensterRef = useRef();
   const touchStartX = useRef(null);
   const tabs = ["foto", "notatie", "info"];
 
@@ -78,10 +76,30 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
       var url = await getDownloadURL(storageRef);
       nieuweFotos.push(url);
     }
-    setFotoHistory(function(prev) { return [...prev, nieuweFotos]; });
+    setFotoHistory(function(p) { return [...p, nieuweFotos]; });
     setLocalFotos(nieuweFotos); onFotosUpdate(nieuweFotos);
     await updateDoc(doc(db, "oefeningen", id), { fotos: nieuweFotos });
     setUploading(false);
+  }
+
+  // Verwijder foto
+  function handleVerwijder(index) {
+    const nieuweFotos = localFotos.filter(function(_, i) { return i !== index; });
+    setFotoHistory(function(p) { return [...p, nieuweFotos]; });
+    setLocalFotos(nieuweFotos); onFotosUpdate(nieuweFotos);
+    if (oefeningId) updateDoc(doc(db, "oefeningen", oefeningId), { fotos: nieuweFotos });
+    if (activeFotoIndex >= nieuweFotos.length) setActiveFotoIndex(Math.max(0, nieuweFotos.length - 1));
+  }
+
+  // Verschuif foto
+  function handleVerschuif(index, richting) {
+    const nieuweFotos = [...localFotos];
+    const naar = index + richting;
+    if (naar < 0 || naar >= nieuweFotos.length) return;
+    [nieuweFotos[index], nieuweFotos[naar]] = [nieuweFotos[naar], nieuweFotos[index]];
+    setFotoHistory(function(p) { return [...p, nieuweFotos]; });
+    setLocalFotos(nieuweFotos); onFotosUpdate(nieuweFotos);
+    if (oefeningId) updateDoc(doc(db, "oefeningen", oefeningId), { fotos: nieuweFotos });
   }
 
   // Clean maken
@@ -107,63 +125,66 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
     }
   }
 
-  // Bijsnijden handgrepen
+  // Bijsnijden optie B -- hoekhandgrepen
   function startBijsnijden() {
-    setCropRect({ x: 10, y: 10, w: 80, h: 80 });
+    setCropRect({ x: 5, y: 5, w: 90, h: 90 });
     setBijsnijdActief(true);
   }
 
-  function getClientPos(e) {
-    if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    return { x: e.clientX, y: e.clientY };
+  function getPos(e) {
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX, y: t.clientY };
   }
 
   function handleHandleDown(e, handle) {
     e.preventDefault(); e.stopPropagation();
-    const pos = getClientPos(e);
     setDragHandle(handle);
-    setDragStart(pos);
+    setDragStart(getPos(e));
     setDragStartRect({ ...cropRect });
   }
 
-  function handleOverlayMove(e) {
-    if (!dragHandle || !dragStart || !overlayRef.current) return;
+  function handleVensterMove(e) {
+    if (!dragHandle || !vensterRef.current) return;
     e.preventDefault();
-    const pos = getClientPos(e);
-    const rect = overlayRef.current.getBoundingClientRect();
+    const pos = getPos(e);
+    const rect = vensterRef.current.getBoundingClientRect();
     const dx = ((pos.x - dragStart.x) / rect.width) * 100;
     const dy = ((pos.y - dragStart.y) / rect.height) * 100;
     const r = { ...dragStartRect };
-
-    if (dragHandle === "move") {
-      r.x = Math.max(0, Math.min(100 - r.w, r.x + dx));
-      r.y = Math.max(0, Math.min(100 - r.h, r.y + dy));
-    } else {
-      if (dragHandle.includes("l")) { const nw = r.w - dx; if (nw > 5) { r.x = r.x + dx; r.w = nw; } }
-      if (dragHandle.includes("r")) { r.w = Math.min(100 - r.x, Math.max(5, r.w + dx)); }
-      if (dragHandle.includes("t")) { const nh = r.h - dy; if (nh > 5) { r.y = r.y + dy; r.h = nh; } }
-      if (dragHandle.includes("b")) { r.h = Math.min(100 - r.y, Math.max(5, r.h + dy)); }
-      r.x = Math.max(0, r.x); r.y = Math.max(0, r.y);
-      r.w = Math.min(100 - r.x, r.w); r.h = Math.min(100 - r.y, r.h);
+    if (dragHandle === "tl") {
+      r.x = Math.max(0, r.x + dx); r.y = Math.max(0, r.y + dy);
+      r.w = Math.max(10, dragStartRect.w - dx); r.h = Math.max(10, dragStartRect.h - dy);
+    } else if (dragHandle === "tr") {
+      r.y = Math.max(0, r.y + dy);
+      r.w = Math.max(10, Math.min(100 - r.x, dragStartRect.w + dx));
+      r.h = Math.max(10, dragStartRect.h - dy);
+    } else if (dragHandle === "bl") {
+      r.x = Math.max(0, r.x + dx);
+      r.w = Math.max(10, dragStartRect.w - dx);
+      r.h = Math.max(10, Math.min(100 - r.y, dragStartRect.h + dy));
+    } else if (dragHandle === "br") {
+      r.w = Math.max(10, Math.min(100 - r.x, dragStartRect.w + dx));
+      r.h = Math.max(10, Math.min(100 - r.y, dragStartRect.h + dy));
     }
     setCropRect(r);
   }
 
-  function handleOverlayUp() { setDragHandle(null); }
+  function handleVensterUp() { setDragHandle(null); }
 
   async function bevestigBijsnijden() {
     const img = imgRef.current; if (!img) return;
     const offscreen = document.createElement("canvas");
-    const sx = (cropRect.x / 100) * img.naturalWidth;
-    const sy = (cropRect.y / 100) * img.naturalHeight;
-    const sw = (cropRect.w / 100) * img.naturalWidth;
-    const sh = (cropRect.h / 100) * img.naturalHeight;
-    offscreen.width = sw; offscreen.height = sh;
-    offscreen.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    offscreen.width = (cropRect.w / 100) * img.naturalWidth;
+    offscreen.height = (cropRect.h / 100) * img.naturalHeight;
+    offscreen.getContext("2d").drawImage(img,
+      (cropRect.x / 100) * img.naturalWidth,
+      (cropRect.y / 100) * img.naturalHeight,
+      offscreen.width, offscreen.height,
+      0, 0, offscreen.width, offscreen.height
+    );
     offscreen.toBlob(async function(blob) {
       const id = oefeningId; if (!id) return;
-      const pad = "fotos/" + id + "/crop_" + Date.now() + ".jpg";
-      const storageRef = ref(storage, pad);
+      const storageRef = ref(storage, "fotos/" + id + "/crop_" + Date.now() + ".jpg");
       await uploadBytes(storageRef, blob);
       const nieuweUrl = await getDownloadURL(storageRef);
       const nieuweFotos = localFotos.map(function(f, i) { return i === activeFotoIndex ? nieuweUrl : f; });
@@ -194,31 +215,6 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
       } else { setAnalyseStatus("Fout."); }
     } catch(err) { setAnalyseStatus("Fout."); }
     setAnalyseBezig(false);
-  }
-
-  // Handgreep component
-  function Handle({ pos, handle }) {
-    const stijl = {
-      position: "absolute", width: HANDLE_SIZE, height: HANDLE_SIZE,
-      background: "#fff", border: "2.5px solid " + PINK,
-      borderRadius: 4, cursor: "pointer", zIndex: 10,
-      touchAction: "none",
-    };
-    const pct = cropRect;
-    if (pos === "tl") { stijl.left = pct.x + "%"; stijl.top = pct.y + "%"; stijl.transform = "translate(-50%,-50%)"; }
-    if (pos === "tr") { stijl.left = (pct.x + pct.w) + "%"; stijl.top = pct.y + "%"; stijl.transform = "translate(-50%,-50%)"; }
-    if (pos === "bl") { stijl.left = pct.x + "%"; stijl.top = (pct.y + pct.h) + "%"; stijl.transform = "translate(-50%,-50%)"; }
-    if (pos === "br") { stijl.left = (pct.x + pct.w) + "%"; stijl.top = (pct.y + pct.h) + "%"; stijl.transform = "translate(-50%,-50%)"; }
-    if (pos === "tm") { stijl.left = (pct.x + pct.w/2) + "%"; stijl.top = pct.y + "%"; stijl.transform = "translate(-50%,-50%)"; stijl.borderRadius = 12; }
-    if (pos === "bm") { stijl.left = (pct.x + pct.w/2) + "%"; stijl.top = (pct.y + pct.h) + "%"; stijl.transform = "translate(-50%,-50%)"; stijl.borderRadius = 12; }
-    if (pos === "lm") { stijl.left = pct.x + "%"; stijl.top = (pct.y + pct.h/2) + "%"; stijl.transform = "translate(-50%,-50%)"; stijl.borderRadius = 12; }
-    if (pos === "rm") { stijl.left = (pct.x + pct.w) + "%"; stijl.top = (pct.y + pct.h/2) + "%"; stijl.transform = "translate(-50%,-50%)"; stijl.borderRadius = 12; }
-    return (
-      <div style={stijl}
-        onMouseDown={function(e) { handleHandleDown(e, handle); }}
-        onTouchStart={function(e) { handleHandleDown(e, handle); }}
-      />
-    );
   }
 
   return (
@@ -262,65 +258,58 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
         })}
       </div>
 
-      {/* Foto venster -- groter in portrait */}
-      <div style={{ height: 300, flexShrink: 0, background: "#f5f5f5", borderBottom: "1px solid #eee", position: "relative", overflow: "hidden" }}
+      {/* Foto venster */}
+      <div ref={vensterRef}
+        style={{ height: 220, flexShrink: 0, background: "#f5f5f5", borderBottom: "1px solid #eee", position: "relative", overflow: "hidden" }}
         onTouchStart={handleSwipeTouchStart}
         onTouchEnd={handleSwipeTouchEnd}
-        onMouseMove={handleOverlayMove}
-        onTouchMove={handleOverlayMove}
-        onMouseUp={handleOverlayUp}
-        onTouchEnd={function(e) { handleOverlayUp(); handleSwipeTouchEnd(e); }}
-        ref={overlayRef}>
+        onMouseMove={handleVensterMove}
+        onTouchMove={handleVensterMove}
+        onMouseUp={handleVensterUp}
+        onTouchEndCapture={handleVensterUp}>
 
-        {/* Foto tab */}
         {actieveTab === "foto" && (
           <>
             {localFotos.length > 0 ? (
               <>
                 <img ref={imgRef} src={localFotos[activeFotoIndex]} alt="Foto"
-                  style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", userSelect: "none" }} />
+                  style={{ width: "100%", height: "100%", objectFit: "contain", userSelect: "none", pointerEvents: bijsnijdActief ? "none" : "auto" }} />
 
                 {/* Bijsnijden overlay */}
                 {bijsnijdActief && (
                   <div style={{ position: "absolute", inset: 0, zIndex: 5 }}>
-                    {/* Donkere overlay buiten selectie */}
-                    <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+                    <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
                       <defs>
-                        <mask id="cropMask">
+                        <mask id="cm">
                           <rect width="100%" height="100%" fill="white" />
-                          <rect
-                            x={cropRect.x + "%"} y={cropRect.y + "%"}
-                            width={cropRect.w + "%"} height={cropRect.h + "%"}
-                            fill="black" />
+                          <rect x={cropRect.x+"%"} y={cropRect.y+"%"} width={cropRect.w+"%"} height={cropRect.h+"%"} fill="black" />
                         </mask>
                       </defs>
-                      <rect width="100%" height="100%" fill="rgba(0,0,0,0.5)" mask="url(#cropMask)" />
-                      <rect
-                        x={cropRect.x + "%"} y={cropRect.y + "%"}
-                        width={cropRect.w + "%"} height={cropRect.h + "%"}
-                        fill="none" stroke={PINK} strokeWidth="2" strokeDasharray="6,3" />
+                      <rect width="100%" height="100%" fill="rgba(0,0,0,0.5)" mask="url(#cm)" />
+                      <rect x={cropRect.x+"%"} y={cropRect.y+"%"} width={cropRect.w+"%"} height={cropRect.h+"%"} fill="none" stroke={PINK} strokeWidth="2" />
                     </svg>
 
-                    {/* Verplaats heel gebied */}
-                    <div style={{
-                      position: "absolute",
-                      left: cropRect.x + "%", top: cropRect.y + "%",
-                      width: cropRect.w + "%", height: cropRect.h + "%",
-                      cursor: "move", zIndex: 6
-                    }}
-                      onMouseDown={function(e) { handleHandleDown(e, "move"); }}
-                      onTouchStart={function(e) { handleHandleDown(e, "move"); }}
-                    />
-
-                    {/* 8 handgrepen */}
-                    <Handle pos="tl" handle="tl" />
-                    <Handle pos="tr" handle="tr" />
-                    <Handle pos="bl" handle="bl" />
-                    <Handle pos="br" handle="br" />
-                    <Handle pos="tm" handle="t" />
-                    <Handle pos="bm" handle="b" />
-                    <Handle pos="lm" handle="l" />
-                    <Handle pos="rm" handle="r" />
+                    {/* 4 hoekhandgrepen */}
+                    {[
+                      { pos: "tl", left: cropRect.x+"%", top: cropRect.y+"%" },
+                      { pos: "tr", left: (cropRect.x+cropRect.w)+"%", top: cropRect.y+"%" },
+                      { pos: "bl", left: cropRect.x+"%", top: (cropRect.y+cropRect.h)+"%" },
+                      { pos: "br", left: (cropRect.x+cropRect.w)+"%", top: (cropRect.y+cropRect.h)+"%" },
+                    ].map(function(h) {
+                      return (
+                        <div key={h.pos}
+                          style={{
+                            position: "absolute", width: HANDLE_SIZE, height: HANDLE_SIZE,
+                            background: "#fff", border: "3px solid " + PINK, borderRadius: 4,
+                            left: h.left, top: h.top,
+                            transform: "translate(-50%,-50%)",
+                            zIndex: 10, touchAction: "none", cursor: "pointer"
+                          }}
+                          onMouseDown={function(e) { handleHandleDown(e, h.pos); }}
+                          onTouchStart={function(e) { handleHandleDown(e, h.pos); }}
+                        />
+                      );
+                    })}
                   </div>
                 )}
 
@@ -331,37 +320,23 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
                     ↩ Undo
                   </button>
                 )}
-
-                {/* Foto dots */}
-                {localFotos.length > 1 && !bijsnijdActief && (
-                  <div style={{ position: "absolute", bottom: 10, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 6 }}>
-                    {localFotos.map(function(_, i) {
-                      return (
-                        <button key={i} onClick={function() { setActiveFotoIndex(i); }}
-                          style={{ width: 10, height: 10, borderRadius: "50%", border: "none", background: i === activeFotoIndex ? PINK : "#ddd", cursor: "pointer", padding: 0 }} />
-                      );
-                    })}
-                  </div>
-                )}
               </>
             ) : (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 8 }}>
-                <div style={{ fontSize: 48 }}>📸</div>
+                <div style={{ fontSize: 40 }}>📸</div>
                 <div style={{ color: "#ccc", fontSize: 13 }}>Nog geen foto</div>
               </div>
             )}
           </>
         )}
 
-        {/* Notatie tab */}
         {actieveTab === "notatie" && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", flexDirection: "column", gap: 8 }}>
-            <div style={{ fontSize: 48 }}>🎼</div>
+            <div style={{ fontSize: 40 }}>🎼</div>
             <div style={{ color: "#ccc", fontSize: 13 }}>Notatie komt hier</div>
           </div>
         )}
 
-        {/* Info tab */}
         {actieveTab === "info" && (
           <div style={{ height: "100%", position: "relative" }}>
             <textarea value={localInfo}
@@ -379,30 +354,23 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
             )}
           </div>
         )}
-
-        {/* Swipe dots */}
-        <div style={{ position: "absolute", bottom: 6, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 5, pointerEvents: "none" }}>
-          {tabs.map(function(t) {
-            return <div key={t} style={{ width: 8, height: 8, borderRadius: "50%", background: actieveTab === t ? PINK : "#ddd" }} />;
-          })}
-        </div>
       </div>
 
-      {/* Knoppen onderaan */}
+      {/* Knoppen + foto lijst */}
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
 
-        {analyseStatus ? (
+        {analyseStatus && (
           <div style={{ marginBottom: 10, fontSize: 12, color: analyseStatus.startsWith("✓") ? "#00B84C" : "#888", textAlign: "center", fontWeight: 700 }}>
             {analyseStatus}
           </div>
-        ) : null}
+        )}
 
-        {/* Foto knoppen */}
+        {/* Foto tab */}
         {actieveTab === "foto" && (
           <>
             <button onClick={function() { invoerRef.current.click(); }}
               style={{ width: "100%", background: PINK, color: "#fff", border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
-              {uploading ? "Uploaden..." : localFotos.length > 0 ? "+ Foto toevoegen" : "📸 Importeer foto"}
+              {uploading ? "Uploaden..." : "📸 Foto importeren"}
             </button>
             <input ref={invoerRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleFotoKies} />
 
@@ -418,38 +386,64 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
                     style={{ width: "100%", accentColor: PINK }} />
                 </div>
 
-                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                  {bijsnijdActief ? (
-                    <>
-                      <button onClick={bevestigBijsnijden}
-                        style={{ flex: 1, background: "#00B84C", color: "#fff", border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                        ✓ Bevestig
-                      </button>
-                      <button onClick={function() { setBijsnijdActief(false); }}
-                        style={{ flex: 1, background: "#f0f0f0", color: DARK, border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                        ✗ Annuleer
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={startBijsnijden}
-                        style={{ flex: 1, background: "#f0f0f0", color: DARK, border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                        ✂️ Bijsnijden
-                      </button>
-                      <button onClick={function() { handleVerwerk(activeFotoIndex); }}
-                        disabled={verwerkStatus[activeFotoIndex] === "bezig"}
-                        style={{ flex: 1, background: verwerkStatus[activeFotoIndex] === "klaar" ? "#00B84C" : PINK_LIGHT, color: verwerkStatus[activeFotoIndex] === "klaar" ? "#fff" : PINK, border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                        {verwerkStatus[activeFotoIndex] === "bezig" ? "Bezig..." : verwerkStatus[activeFotoIndex] === "klaar" ? "✓ Clean" : "🪄 Clean"}
-                      </button>
-                    </>
-                  )}
+                {bijsnijdActief ? (
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    <button onClick={bevestigBijsnijden}
+                      style={{ flex: 1, background: "#00B84C", color: "#fff", border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                      ✓ Bevestig
+                    </button>
+                    <button onClick={function() { setBijsnijdActief(false); }}
+                      style={{ flex: 1, background: "#f0f0f0", color: DARK, border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                      ✗ Annuleer
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    <button onClick={startBijsnijden}
+                      style={{ flex: 1, background: "#f0f0f0", color: DARK, border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                      ✂️ Bijsnijden
+                    </button>
+                    <button onClick={function() { handleVerwerk(activeFotoIndex); }}
+                      disabled={verwerkStatus[activeFotoIndex] === "bezig"}
+                      style={{ flex: 1, background: verwerkStatus[activeFotoIndex] === "klaar" ? "#00B84C" : PINK_LIGHT, color: verwerkStatus[activeFotoIndex] === "klaar" ? "#fff" : PINK, border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                      {verwerkStatus[activeFotoIndex] === "bezig" ? "Bezig..." : verwerkStatus[activeFotoIndex] === "klaar" ? "✓ Clean" : "🪄 Clean"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Foto lijst */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+                  {localFotos.map(function(foto, i) {
+                    return (
+                      <div key={i}
+                        style={{ background: i === activeFotoIndex ? "#fff0f5" : "#fafafa", borderRadius: 10, padding: 8, border: i === activeFotoIndex ? "1.5px solid " + PINK : "1.5px solid transparent", cursor: "pointer" }}
+                        onClick={function() { setActiveFotoIndex(i); setBijsnijdActief(false); }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <img src={foto} alt={"foto " + (i+1)}
+                            style={{ width: 56, height: 40, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 11, color: "#999" }}>Foto {i+1}</div>
+                            {i === activeFotoIndex && <div style={{ fontSize: 9, color: PINK, fontWeight: 600 }}>Actief</div>}
+                          </div>
+                          <div style={{ display: "flex", gap: 4 }}>
+                            <button onClick={function(e) { e.stopPropagation(); handleVerschuif(i, -1); }} disabled={i === 0}
+                              style={{ background: i === 0 ? "#eee" : "#f0f0f0", border: "none", borderRadius: 6, padding: "4px 7px", fontSize: 12, cursor: i === 0 ? "default" : "pointer", color: i === 0 ? "#ccc" : "#666" }}>↑</button>
+                            <button onClick={function(e) { e.stopPropagation(); handleVerschuif(i, 1); }} disabled={i === localFotos.length - 1}
+                              style={{ background: i === localFotos.length - 1 ? "#eee" : "#f0f0f0", border: "none", borderRadius: 6, padding: "4px 7px", fontSize: 12, cursor: i === localFotos.length - 1 ? "default" : "pointer", color: i === localFotos.length - 1 ? "#ccc" : "#666" }}>↓</button>
+                            <button onClick={function(e) { e.stopPropagation(); handleVerwijder(i); }}
+                              style={{ background: "#FFF0F0", color: "#E53935", border: "none", borderRadius: 6, padding: "4px 7px", fontSize: 12, cursor: "pointer" }}>✕</button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}
           </>
         )}
 
-        {/* Info knoppen */}
+        {/* Info tab */}
         {actieveTab === "info" && (
           <button
             style={{ width: "100%", background: "#E8F4FD", color: "#1976D2", border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
@@ -457,12 +451,11 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
           </button>
         )}
 
-        {/* AI knop -- altijd */}
+        {/* AI knop */}
         <button onClick={handleAnalyseer} disabled={analyseBezig || localFotos.length === 0}
           style={{ width: "100%", background: analyseBezig ? "#eee" : "#8B2FC9", color: analyseBezig ? "#bbb" : "#fff", border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: analyseBezig ? "default" : "pointer" }}>
           {analyseBezig ? "🤖 Analyseren..." : "🤖 AI Analyseer alles"}
         </button>
-
       </div>
     </div>
   );
