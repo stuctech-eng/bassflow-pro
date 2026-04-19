@@ -213,63 +213,49 @@ setDragHandle(null);
 async function bevestigBijsnijden() {
 const img = imgRef.current;
 if (!img || !img.complete) return;
-
-```
-// imgRef.getBoundingClientRect() geeft de EXACTE rendered positie/grootte
-// van de foto, rekening houdend met objectFit: contain
 const vensterRect = vensterRef.current.getBoundingClientRect();
 const imgRect = img.getBoundingClientRect();
-
-// Crop in pixels relatief aan het venster
 const cropPxX = (cropRect.x / 100) * vensterRect.width;
 const cropPxY = (cropRect.y / 100) * vensterRect.height;
 const cropPxW = (cropRect.w / 100) * vensterRect.width;
 const cropPxH = (cropRect.h / 100) * vensterRect.height;
-
-// Offset van foto binnen venster (door contain letterboxing)
 const offsetX = imgRect.left - vensterRect.left;
 const offsetY = imgRect.top - vensterRect.top;
-
-// Schaalfactoren: rendered pixels → echte pixels
 const scaleX = img.naturalWidth / imgRect.width;
 const scaleY = img.naturalHeight / imgRect.height;
-
-// Vertaal crop naar broncoördinaten van de afbeelding
 const sx = Math.max(0, (cropPxX - offsetX) * scaleX);
 const sy = Math.max(0, (cropPxY - offsetY) * scaleY);
 const sw = Math.min(img.naturalWidth - sx, cropPxW * scaleX);
 const sh = Math.min(img.naturalHeight - sy, cropPxH * scaleY);
-
 if (sw <= 0 || sh <= 0) return;
-
+try {
+const response = await fetch(localFotos[activeFotoIndex]);
+const blob = await response.blob();
+const bitmap = await createImageBitmap(blob);
 const offscreen = document.createElement("canvas");
 offscreen.width = Math.round(sw);
 offscreen.height = Math.round(sh);
-offscreen.getContext("2d").drawImage(
-  img,
-  Math.round(sx), Math.round(sy), Math.round(sw), Math.round(sh),
-  0, 0, Math.round(sw), Math.round(sh)
-);
-
-offscreen.toBlob(async function (blob) {
-  const id = oefeningId;
-  if (!id) return;
-  const storageRef = ref(storage, "fotos/" + id + "/crop_" + Date.now() + ".jpg");
-  await uploadBytes(storageRef, blob);
-  const nieuweUrl = await getDownloadURL(storageRef);
-  const nieuweFotos = localFotos.map(function (f, i) {
-    return i === activeFotoIndex ? nieuweUrl : f;
-  });
-  setFotoHistory(function (p) { return p.concat([nieuweFotos]); });
-  setLocalFotos(nieuweFotos);
-  onFotosUpdate(nieuweFotos);
-  await updateDoc(doc(db, "oefeningen", id), { fotos: nieuweFotos });
-  setBijsnijdActief(false);
-  setFotoFit("contain");
+offscreen.getContext("2d").drawImage(bitmap, Math.round(sx), Math.round(sy), Math.round(sw), Math.round(sh), 0, 0, Math.round(sw), Math.round(sh));
+offscreen.toBlob(async function(blob) {
+const id = oefeningId;
+if (!id) return;
+const storageRef = ref(storage, "fotos/" + id + "/crop_" + Date.now() + ".jpg");
+await uploadBytes(storageRef, blob);
+const nieuweUrl = await getDownloadURL(storageRef);
+const nieuweFotos = localFotos.map(function(f, i) { return i === activeFotoIndex ? nieuweUrl : f; });
+setFotoHistory(function(p) { return p.concat([nieuweFotos]); });
+setLocalFotos(nieuweFotos);
+onFotosUpdate(nieuweFotos);
+await updateDoc(doc(db, "oefeningen", id), { fotos: nieuweFotos });
+setBijsnijdActief(false);
+setFotoFit("contain");
 }, "image/jpeg", 0.92);
-```
-
+} catch(err) {
+console.error("Bijsnijden fout:", err);
+setBijsnijdActief(false);
 }
+}
+Zo kun je het blok in Working Copy zoeken op naam en vervangen. 🎸​​​​​​​​​​​​​​​​
 
 // ─── AI Analyseer ───────────────────────────────────────────────────────────
 async function handleAnalyseer() {
