@@ -179,6 +179,14 @@ export default function OefeningFormulier({ oefening, onSave, onClose }) {
           </button>
 
         </div>
+{/* Info / Notities */}
+<div style={{ marginBottom: 20 }}>
+  <label style={{ fontSize: 11, fontWeight: 700, color: "#888", display: "block", marginBottom: 8 }}>INFO / NOTITIES</label>
+  <textarea value={info} onChange={function(e) { setInfo(e.target.value); }}
+    placeholder="Voeg notities toe..."
+    rows={4}
+    style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1.5px solid #eee", fontSize: 13, outline: "none", resize: "none", boxSizing: "border-box", lineHeight: 1.6, color: DARK }} />
+</div>
 
         {/* Opslaan */}
         <button onClick={handleSave} disabled={opslaan}
