@@ -21,10 +21,11 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
   const [activeFotoIndex, setActiveFotoIndex] = useState(0);
   const [fotoHistory, setFotoHistory] = useState([fotos || []]);
   const [infoHistory, setInfoHistory] = useState([info || ""]);
-  const [cropRect, setCropRect] = useState({ x: 10, y: 10, w: 80, h: 80 });
+  const [cropRect, setCropRect] = useState({ x: 5, y: 5, w: 90, h: 90 });
   const [dragHandle, setDragHandle] = useState(null);
   const [dragStart, setDragStart] = useState(null);
   const [dragStartRect, setDragStartRect] = useState(null);
+  const [fotoFit, setFotoFit] = useState("contain");
 
   const invoerRef = useRef();
   const imgRef = useRef();
@@ -32,7 +33,6 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
   const touchStartX = useRef(null);
   const tabs = ["foto", "notatie", "info"];
 
-  // Swipe
   function handleSwipeTouchStart(e) {
     if (bijsnijdActief) return;
     touchStartX.current = e.touches[0].clientX;
@@ -45,7 +45,6 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
     else if (diff < -60 && idx > 0) setActieveTab(tabs[idx - 1]);
   }
 
-  // Undo
   function undoFoto() {
     if (fotoHistory.length <= 1) return;
     const h = [...fotoHistory]; h.pop();
@@ -54,6 +53,7 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
     setLocalFotos(v); onFotosUpdate(v);
     if (oefeningId) updateDoc(doc(db, "oefeningen", oefeningId), { fotos: v });
   }
+
   function undoInfo() {
     if (infoHistory.length <= 1) return;
     const h = [...infoHistory]; h.pop();
@@ -63,7 +63,6 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
     if (oefeningId) updateDoc(doc(db, "oefeningen", oefeningId), { info: v });
   }
 
-  // Foto uploaden
   async function handleFotoKies(e) {
     const bestanden = Array.from(e.target.files);
     setUploading(true);
@@ -82,7 +81,6 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
     setUploading(false);
   }
 
-  // Verwijder foto
   function handleVerwijder(index) {
     const nieuweFotos = localFotos.filter(function(_, i) { return i !== index; });
     setFotoHistory(function(p) { return [...p, nieuweFotos]; });
@@ -91,7 +89,6 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
     if (activeFotoIndex >= nieuweFotos.length) setActiveFotoIndex(Math.max(0, nieuweFotos.length - 1));
   }
 
-  // Verschuif foto
   function handleVerschuif(index, richting) {
     const nieuweFotos = [...localFotos];
     const naar = index + richting;
@@ -102,7 +99,6 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
     if (oefeningId) updateDoc(doc(db, "oefeningen", oefeningId), { fotos: nieuweFotos });
   }
 
-  // Clean maken
   async function handleVerwerk(index) {
     const id = oefeningId; if (!id) return;
     setVerwerkStatus(function(p) { return Object.assign({}, p, { [index]: "bezig" }); });
@@ -125,9 +121,9 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
     }
   }
 
-  // Bijsnijden optie B -- hoekhandgrepen
   function startBijsnijden() {
     setCropRect({ x: 5, y: 5, w: 90, h: 90 });
+    setFotoFit("contain");
     setBijsnijdActief(true);
   }
 
@@ -172,16 +168,37 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
   function handleVensterUp() { setDragHandle(null); }
 
   async function bevestigBijsnijden() {
-    const img = imgRef.current; if (!img) return;
+    const img = imgRef.current;
+    if (!img || !img.complete) return;
+    const venster = vensterRef.current;
+    const vensterRect = venster.getBoundingClientRect();
+
+    // Bereken werkelijke weergaveafmetingen van de afbeelding (contain)
+    const imgRatio = img.naturalWidth / img.naturalHeight;
+    const vensterRatio = vensterRect.width / vensterRect.height;
+    let weergaveW, weergaveH, offsetX, offsetY;
+    if (imgRatio > vensterRatio) {
+      weergaveW = vensterRect.width;
+      weergaveH = vensterRect.width / imgRatio;
+      offsetX = 0;
+      offsetY = (vensterRect.height - weergaveH) / 2;
+    } else {
+      weergaveH = vensterRect.height;
+      weergaveW = vensterRect.height * imgRatio;
+      offsetX = (vensterRect.width - weergaveW) / 2;
+      offsetY = 0;
+    }
+
+    const sx = ((cropRect.x / 100) * vensterRect.width - offsetX) / weergaveW * img.naturalWidth;
+    const sy = ((cropRect.y / 100) * vensterRect.height - offsetY) / weergaveH * img.naturalHeight;
+    const sw = (cropRect.w / 100) * vensterRect.width / weergaveW * img.naturalWidth;
+    const sh = (cropRect.h / 100) * vensterRect.height / weergaveH * img.naturalHeight;
+
     const offscreen = document.createElement("canvas");
-    offscreen.width = (cropRect.w / 100) * img.naturalWidth;
-    offscreen.height = (cropRect.h / 100) * img.naturalHeight;
-    offscreen.getContext("2d").drawImage(img,
-      (cropRect.x / 100) * img.naturalWidth,
-      (cropRect.y / 100) * img.naturalHeight,
-      offscreen.width, offscreen.height,
-      0, 0, offscreen.width, offscreen.height
-    );
+    offscreen.width = Math.max(1, sw);
+    offscreen.height = Math.max(1, sh);
+    offscreen.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
     offscreen.toBlob(async function(blob) {
       const id = oefeningId; if (!id) return;
       const storageRef = ref(storage, "fotos/" + id + "/crop_" + Date.now() + ".jpg");
@@ -192,10 +209,10 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
       setLocalFotos(nieuweFotos); onFotosUpdate(nieuweFotos);
       await updateDoc(doc(db, "oefeningen", id), { fotos: nieuweFotos });
       setBijsnijdActief(false);
+      setFotoFit("cover");
     }, "image/jpeg", 0.92);
   }
 
-  // AI
   async function handleAnalyseer() {
     const id = oefeningId;
     if (!id || localFotos.length === 0) return;
@@ -273,9 +290,8 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
             {localFotos.length > 0 ? (
               <>
                 <img ref={imgRef} src={localFotos[activeFotoIndex]} alt="Foto"
-                  style={{ width: "100%", height: "100%", objectFit: "contain", userSelect: "none", pointerEvents: bijsnijdActief ? "none" : "auto" }} />
+                  style={{ width: "100%", height: "100%", objectFit: fotoFit, userSelect: "none", pointerEvents: bijsnijdActief ? "none" : "auto" }} />
 
-                {/* Bijsnijden overlay */}
                 {bijsnijdActief && (
                   <div style={{ position: "absolute", inset: 0, zIndex: 5 }}>
                     <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
@@ -289,7 +305,6 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
                       <rect x={cropRect.x+"%"} y={cropRect.y+"%"} width={cropRect.w+"%"} height={cropRect.h+"%"} fill="none" stroke={PINK} strokeWidth="2" />
                     </svg>
 
-                    {/* 4 hoekhandgrepen */}
                     {[
                       { pos: "tl", left: cropRect.x+"%", top: cropRect.y+"%" },
                       { pos: "tr", left: (cropRect.x+cropRect.w)+"%", top: cropRect.y+"%" },
@@ -301,8 +316,7 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
                           style={{
                             position: "absolute", width: HANDLE_SIZE, height: HANDLE_SIZE,
                             background: "#fff", border: "3px solid " + PINK, borderRadius: 4,
-                            left: h.left, top: h.top,
-                            transform: "translate(-50%,-50%)",
+                            left: h.left, top: h.top, transform: "translate(-50%,-50%)",
                             zIndex: 10, touchAction: "none", cursor: "pointer"
                           }}
                           onMouseDown={function(e) { handleHandleDown(e, h.pos); }}
@@ -313,7 +327,6 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
                   </div>
                 )}
 
-                {/* Undo */}
                 {fotoHistory.length > 1 && !bijsnijdActief && (
                   <button onClick={undoFoto}
                     style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.45)", color: "#fff", border: "none", borderRadius: 16, padding: "4px 10px", fontSize: 11, cursor: "pointer", zIndex: 10 }}>
@@ -356,16 +369,9 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
         )}
       </div>
 
-      {/* Knoppen + foto lijst */}
+      {/* Knoppen + lijst */}
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
 
-        {analyseStatus && (
-          <div style={{ marginBottom: 10, fontSize: 12, color: analyseStatus.startsWith("✓") ? "#00B84C" : "#888", textAlign: "center", fontWeight: 700 }}>
-            {analyseStatus}
-          </div>
-        )}
-
-        {/* Foto tab */}
         {actieveTab === "foto" && (
           <>
             <button onClick={function() { invoerRef.current.click(); }}
@@ -373,6 +379,17 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
               {uploading ? "Uploaden..." : "📸 Foto importeren"}
             </button>
             <input ref={invoerRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleFotoKies} />
+
+            <button onClick={handleAnalyseer} disabled={analyseBezig || localFotos.length === 0}
+              style={{ width: "100%", background: analyseBezig ? "#eee" : "#8B2FC9", color: analyseBezig ? "#bbb" : "#fff", border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: analyseBezig ? "default" : "pointer", marginBottom: 8 }}>
+              {analyseBezig ? "🤖 Analyseren..." : "🤖 AI Analyseer"}
+            </button>
+
+            {analyseStatus ? (
+              <div style={{ marginBottom: 8, fontSize: 12, color: analyseStatus.startsWith("✓") ? "#00B84C" : "#888", textAlign: "center", fontWeight: 700 }}>
+                {analyseStatus}
+              </div>
+            ) : null}
 
             {localFotos.length > 0 && (
               <>
@@ -411,13 +428,12 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
                   </div>
                 )}
 
-                {/* Foto lijst */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {localFotos.map(function(foto, i) {
                     return (
                       <div key={i}
                         style={{ background: i === activeFotoIndex ? "#fff0f5" : "#fafafa", borderRadius: 10, padding: 8, border: i === activeFotoIndex ? "1.5px solid " + PINK : "1.5px solid transparent", cursor: "pointer" }}
-                        onClick={function() { setActiveFotoIndex(i); setBijsnijdActief(false); }}>
+                        onClick={function() { setActiveFotoIndex(i); setBijsnijdActief(false); setFotoFit("contain"); }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <img src={foto} alt={"foto " + (i+1)}
                             style={{ width: 56, height: 40, objectFit: "cover", borderRadius: 7, flexShrink: 0 }} />
@@ -443,19 +459,24 @@ export default function FotoScherm({ oefeningId, maakConceptAan, fotos, info, on
           </>
         )}
 
-        {/* Info tab */}
-        {actieveTab === "info" && (
-          <button
-            style={{ width: "100%", background: "#E8F4FD", color: "#1976D2", border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
-            🌐 Vertaal naar Nederlands
-          </button>
+        {actieveTab === "notatie" && (
+          <div style={{ textAlign: "center", color: "#bbb", fontSize: 13, paddingTop: 20 }}>
+            Notatie editor komt binnenkort
+          </div>
         )}
 
-        {/* AI knop */}
-        <button onClick={handleAnalyseer} disabled={analyseBezig || localFotos.length === 0}
-          style={{ width: "100%", background: analyseBezig ? "#eee" : "#8B2FC9", color: analyseBezig ? "#bbb" : "#fff", border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: analyseBezig ? "default" : "pointer" }}>
-          {analyseBezig ? "🤖 Analyseren..." : "🤖 AI Analyseer alles"}
-        </button>
+        {actieveTab === "info" && (
+          <>
+            <button
+              style={{ width: "100%", background: "#E8F4FD", color: "#1976D2", border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
+              🌐 Vertaal naar Nederlands
+            </button>
+            <button onClick={handleAnalyseer} disabled={analyseBezig || localFotos.length === 0}
+              style={{ width: "100%", background: analyseBezig ? "#eee" : "#8B2FC9", color: analyseBezig ? "#bbb" : "#fff", border: "none", borderRadius: 10, padding: "9px", fontSize: 13, fontWeight: 700, cursor: analyseBezig ? "default" : "pointer" }}>
+              {analyseBezig ? "🤖 Analyseren..." : "🤖 AI Analyseer"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
