@@ -1,7 +1,6 @@
 # BassFlow PRO
 
 ## Nieuwe chat starten
-Zeg dit in nieuwe chat:
 "Lees mijn README op https://raw.githubusercontent.com/stuctech-eng/bassflow-pro/main/README.md en help me verder met BassFlow PRO"
 
 ## Project
@@ -32,22 +31,25 @@ OefeningFormulier.jsx navigeert naar 4 schermen:
 ## Bestandsstructuur
 src/components/
   OefeningFormulier.jsx  klaar
-  FotoScherm.jsx         bug bijsnijden
+  FotoScherm.jsx         2 bugs — zie hieronder
   AudioScherm.jsx        placeholder
-  EditorScherm.jsx       Fase 1A AlphaTab CDN
+  EditorScherm.jsx       Fase 1A AlphaTab CDN — nog niet getest
   FotoBijsnijden.jsx     klaar
   DetailScherm.jsx       klaar
   ModuleScherm.jsx       klaar
 editor.html              oude canvas editor
 
-## EditorScherm — AlphaTab Fase 1A
-- AlphaTab geladen via CDN
-- Bass notenbalk + TAB tonen
-- Playback knop
-- Voorbeeld baslijn als test
-- Later omzetten naar npm install op PC
+## FotoScherm bugs — fix nodig
+Bug 1 — regel 18:
+useState("");f  ← verwijder de f
 
-## FotoScherm — huidige staat
+Bug 2 — bevestigBijsnijden functie:
+Sluitende } ontbreekt na catch block
+setBijsnijdActief(false);
+  }
+}  ← deze ontbreekt
+
+## FotoScherm — staat na fix
 3 tabs met swipe (Foto / Notatie / Info)
 Groene bolletje = tab heeft inhoud
 Undo per tab
@@ -63,24 +65,25 @@ Foto tab:
 Notatie tab: placeholder
 Info tab: textarea + Vertaal + AI knop
 
-## Bug — bijsnijden bevestigen
-Probleem: foto wordt verkeerd bijgesneden
-Oorzaak: cropRect percentages gebaseerd op heel venster maar foto gebruikt objectFit contain met lege ruimte boven/onder of links/rechts
-Fix nodig: offsetX/offsetY correct berekenen voor werkelijke fotogrootte binnen venster
+## EditorScherm — AlphaTab Fase 1A
+- AlphaTab geladen via CDN
+- Bass notenbalk + TAB tonen
+- Playback knop
+- Voorbeeld baslijn als test
+- Later omzetten naar npm op PC
 
 ## Volgende stappen
-1. EditorScherm AlphaTab testen
-2. FotoScherm bijsnijden bug fixen
-3. AudioScherm bouwen zelfde tab structuur als FotoScherm
+1. FotoScherm bugs fixen (2 bugs hierboven)
+2. EditorScherm AlphaTab testen
+3. AudioScherm bouwen
 4. PC: AlphaTab omzetten van CDN naar npm
 5. PC: Firebase Function updaten met splits modus
 
 ## AlphaTab plan
-Doel: professionele notatie engine voor basgitaar
 CDN nu — npm later via PC
-Fase 1A: viewer werkend — bezig
+Fase 1A: viewer — bezig
 Fase 1B: noten invoeren
-Fase 1C: technieken hammer-on slide bend etc
+Fase 1C: technieken
 CDN werkt via bassflow-pro.web.app — NIET via edge://external-file
 
 ## Muziekmodel toekomst
@@ -98,6 +101,10 @@ Realtime Database: auth != null lezen en schrijven
 3. GitHub Action deployt automatisch 2 minuten
 4. Testen via bassflow-pro.web.app in Safari
 
-## README update afspraak
-Claude werkt deze README bij na elke grote wijziging.
-Altijd als laatste stap van een sessie.
+## Afspraken
+- Altijd 1 blok code per bestand
+- Stap voor stap
+- Zip met -j flag
+- Claude update README na elke grote wijziging
+- Commando README UPDATE = direct bijgewerkte README
+- Commando CODESNAP = direct CodeSnap snippet
