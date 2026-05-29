@@ -27,18 +27,25 @@ OefeningFormulier.jsx navigeert naar 4 schermen:
 - Pagina 1: OefeningFormulier — titel, module, tempo, 3 knoppen, info, opslaan
 - Pagina 2: FotoScherm — foto workflow
 - Pagina 3: AudioScherm — audio workflow
-- Pagina 4: EditorScherm — noten editor
+- Pagina 4: EditorScherm — AlphaTab noten editor
 
 ## Bestandsstructuur
 src/components/
- OefeningFormulier.jsx  klaar
- FotoScherm.jsx         bug bijsnijden
- AudioScherm.jsx        placeholder
- EditorScherm.jsx       placeholder — AlphaTab komt hier
- FotoBijsnijden.jsx     klaar
- DetailScherm.jsx       klaar
- ModuleScherm.jsx       klaar
+  OefeningFormulier.jsx  klaar
+  FotoScherm.jsx         bug bijsnijden
+  AudioScherm.jsx        placeholder
+  EditorScherm.jsx       Fase 1A AlphaTab CDN
+  FotoBijsnijden.jsx     klaar
+  DetailScherm.jsx       klaar
+  ModuleScherm.jsx       klaar
 editor.html              oude canvas editor
+
+## EditorScherm — AlphaTab Fase 1A
+- AlphaTab geladen via CDN
+- Bass notenbalk + TAB tonen
+- Playback knop
+- Voorbeeld baslijn als test
+- Later omzetten naar npm install op PC
 
 ## FotoScherm — huidige staat
 3 tabs met swipe (Foto / Notatie / Info)
@@ -62,15 +69,16 @@ Oorzaak: cropRect percentages gebaseerd op heel venster maar foto gebruikt objec
 Fix nodig: offsetX/offsetY correct berekenen voor werkelijke fotogrootte binnen venster
 
 ## Volgende stappen
-1. FotoScherm bijsnijden bug fixen
-2. AlphaTab integreren in EditorScherm.jsx
+1. EditorScherm AlphaTab testen
+2. FotoScherm bijsnijden bug fixen
 3. AudioScherm bouwen zelfde tab structuur als FotoScherm
-4. PC: Firebase Function updaten met splits modus
+4. PC: AlphaTab omzetten van CDN naar npm
+5. PC: Firebase Function updaten met splits modus
 
 ## AlphaTab plan
 Doel: professionele notatie engine voor basgitaar
-Volledige notatie + TAB + playback
-Fase 1A: viewer werkend
+CDN nu — npm later via PC
+Fase 1A: viewer werkend — bezig
 Fase 1B: noten invoeren
 Fase 1C: technieken hammer-on slide bend etc
 CDN werkt via bassflow-pro.web.app — NIET via edge://external-file
