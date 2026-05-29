@@ -15,6 +15,8 @@ const [localInfo, setLocalInfo] = useState(info || "");
 const [uploading, setUploading] = useState(false);
 const [analyseBezig, setAnalyseBezig] = useState(false);
 const [analyseStatus, setAnalyseStatus] = useState("");
+
+
 const [drempel, setDrempel] = useState(160);
 const [bijsnijdActief, setBijsnijdActief] = useState(false);
 const [verwerkStatus, setVerwerkStatus] = useState({});
@@ -254,7 +256,7 @@ setFotoFit("contain");
 console.error("Bijsnijden fout:", err);
 setBijsnijdActief(false);
 }
-
+}
 
 // ─── AI Analyseer ───────────────────────────────────────────────────────────
 async function handleAnalyseer() {
