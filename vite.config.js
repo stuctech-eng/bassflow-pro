@@ -26,8 +26,20 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // AlphaTab workers uitsluiten van service worker caching
+        navigateFallbackDenylist: [/\/alphaTab/]
       }
     })
-  ]
+  ],
+  optimizeDeps: {
+    exclude: ['@coderline/alphatab']
+  },
+  server: {
+    headers: {
+      // Verplicht voor AlphaTab AudioWorklet
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp'
+    }
+  }
 })
